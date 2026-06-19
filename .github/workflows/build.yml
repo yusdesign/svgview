@@ -98,6 +98,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+          ./gradlew bundleDebug
       
       - name: 📤 Upload Android APK
         uses: actions/upload-artifact@v4
