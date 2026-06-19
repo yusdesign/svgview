@@ -110,59 +110,75 @@ button:focus-visible {
   gap: 1rem;
 }
 
+/* Hero section with 3D transforms */
 #center .hero {
   position: relative;
   display: inline-block;
   width: 170px;
   height: 179px;
+  transition: filter 300ms;
+}
+
+#center .hero:hover {
+  filter: drop-shadow(0 0 2rem #646cffaa);
 }
 
 #center .base {
   display: block;
   width: 100%;
   height: 100%;
+  position: relative;
+  z-index: 0;
 }
 
+/* JavaScript logo - positioned on the base plate with 3D transform */
 #center .framework {
   position: absolute;
-  bottom: -10px;
-  right: -10px;
-  width: 40px;
-  height: 40px;
+  z-index: 1;
+  top: 34px;
+  left: 50%;
+  transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg) scale(1.4);
+  height: 28px;
+  width: auto;
+  margin-left: -14px; /* Center adjustment */
+  opacity: 0;
   animation: slideUp 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
   animation-delay: 0.3s;
-  opacity: 0;
 }
 
+/* Vite logo - positioned on the super plate with 3D transform */
 #center .vite {
   position: absolute;
-  top: -10px;
-  left: -10px;
-  width: 40px;
-  height: 40px;
+  z-index: 0;
+  top: 107px;
+  left: 50%;
+  transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg) scale(0.8);
+  height: 26px;
+  width: auto;
+  margin-left: -13px; /* Center adjustment */
+  opacity: 0;
   animation: slideDown 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
   animation-delay: 0.3s;
-  opacity: 0;
 }
 
 @keyframes slideDown {
   from {
-    transform: translateY(-20px);
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg) scale(0.8) translateY(-20px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg) scale(0.8);
     opacity: 1;
   }
 }
 
 @keyframes slideUp {
   from {
-    transform: translateY(20px);
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg) scale(1.4) translateY(20px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg) scale(1.4);
     opacity: 1;
   }
 }
