@@ -148,7 +148,7 @@ jobs:
       
       - name: 🏗️ Build iOS app
         run: |
-          cd ios/App
+          cd ios
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Debug \

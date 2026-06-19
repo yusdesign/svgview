@@ -765,3 +765,66 @@ body.drag-over::before {
     max-width: none;
   }
 }
+
+/* Folder sections in gallery */
+.folder-section {
+  grid-column: 1 / -1;
+  margin-bottom: 16px;
+}
+
+.folder-label {
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 8px 16px;
+  background: rgba(100, 108, 255, 0.1);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  display: inline-block;
+  color: #646cff;
+}
+
+.gallery-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-count {
+  font-size: 0.85rem;
+  opacity: 0.6;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 12px;
+  border-radius: 12px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 12px;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.modal-filename {
+  font-weight: 500;
+}
+
+.modal-folder {
+  opacity: 0.6;
+}
+
+@media (prefers-color-scheme: light) {
+  .folder-label {
+    background: rgba(100, 108, 255, 0.08);
+  }
+  
+  .folder-count {
+    background: rgba(0, 0, 0, 0.05);
+  }
+  
+  .modal-footer {
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+}
