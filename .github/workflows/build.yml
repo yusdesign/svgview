@@ -129,38 +129,50 @@ jobs:
           cache: 'npm'
     
       - name: 📦 Install dependencies
-        run: npm install
+        run: |
+          npm install --legacy-peer-deps
+          npm install -g @capacitor/cli
+          npm install @capacitor/core @capacitor/ios @capacitor/filesystem @capacitor/device
     
       - name: 🔍 Verify Capacitor
-        run: npx cap --version
+        run: |
+          cap --version
+          npx cap --version || echo "Using global cap"
     
       - name: 📱 Initialize Capacitor
-        run: npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
+        run: |
+          cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist || \
+          npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
     
       - name: 🍎 Install Capacitor iOS
-        run: npx cap add ios
+        run: |
+          cap add ios || \
+          npx cap add ios
     
       - name: 🏗️ Build web app
         run: npm run build
     
       - name: 🔄 Sync Capacitor
-        run: npx cap sync ios
-    
-      - name: 📦 Install CocoaPods
         run: |
-          cd ios/App
-          pod install || echo "No Podfile found, skipping"
+          cap sync ios || \
+          npx cap sync ios
     
       - name: 🏗️ Build iOS app
         run: |
           cd ios/App
-          # Check what's in the directory
-          echo "📁 Contents of ios/App:"
+          echo "📁 Current directory: $(pwd)"
+          echo "📁 Contents:"
           ls -la
         
-          # Try different approaches
+          # Try with cap command first
+          if command -v cap &> /dev/null; then
+            echo "📱 Building with cap command..."
+            cap open ios || true
+          fi
+        
+          # Try different workspace/project paths
           if [ -d "App.xcworkspace" ]; then
-            echo "📱 Building with workspace..."
+            echo "✅ Found workspace: App.xcworkspace"
             xcodebuild -workspace App.xcworkspace \
               -scheme App \
               -configuration Debug \
@@ -168,7 +180,7 @@ jobs:
               -destination 'generic/platform=iOS' \
               CODE_SIGNING_ALLOWED=NO
           elif [ -d "App.xcodeproj" ]; then
-            echo "📱 Building with project..."
+            echo "✅ Found project: App.xcodeproj"
             xcodebuild -project App.xcodeproj \
               -scheme App \
               -configuration Debug \
@@ -177,16 +189,36 @@ jobs:
               CODE_SIGNING_ALLOWED=NO
           else
             echo "❌ No workspace or project found!"
-            echo "📁 Full directory tree:"
-            find . -type d -name "*.xcworkspace" -o -name "*.xcodeproj"
-            exit 1
+            echo "📁 Searching for workspace files..."
+            find . -name "*.xcworkspace" -o -name "*.xcodeproj"
+          
+            # Try to generate with Capacitor
+            cd ../..
+            cap sync ios
+            cd ios/App
+          
+            if [ -d "App.xcworkspace" ]; then
+              echo "✅ Workspace created after sync!"
+              xcodebuild -workspace App.xcworkspace \
+                -scheme App \
+                -configuration Debug \
+                -derivedDataPath build \
+                -destination 'generic/platform=iOS' \
+                CODE_SIGNING_ALLOWED=NO
+            else
+              echo "❌ Still no workspace found, exiting"
+              exit 1
+            fi
           fi
     
       - name: 📤 Upload iOS build
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
-          path: ios/App/build/Debug-iphoneos/*.app
+          path: |
+            ios/App/build/Debug-iphoneos/*.app
+            ios/build/Debug-iphoneos/*.app
+            ios/App/build/Release-iphoneos/*.app
           retention-days: 30
 
   release:
