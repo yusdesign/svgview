@@ -1,0 +1,16 @@
+{
+  "appId": "com.yusdesign.svgview",
+  "appName": "svgview",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor"
+  },
+  "plugins": {
+    "Filesystem": {
+      "allowExternalAccess": true,
+      "accessDirectories": true
+    }
+  }
+}

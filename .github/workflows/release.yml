@@ -1,0 +1,102 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - android
+          - ios
+          - web
+
+jobs:
+  build-release:
+    name: 🏗️ Build Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: ☕ Setup Java (for Android)
+        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: 📱 Setup Android SDK
+        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all'
+        uses: android-actions/setup-android@v3
+      
+      - name: 📦 Install dependencies
+        run: npm ci
+      
+      - name: 📱 Install Capacitor platforms
+        run: |
+          if [ "${{ github.event.inputs.platform }}" == "android" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
+            npx cap add android
+          fi
+          if [ "${{ github.event.inputs.platform }}" == "ios" ] || [ "${{ github.event.inputs.platform }}" == "all" ]; then
+            npx cap add ios
+          fi
+      
+      - name: 🏗️ Build web app
+        run: npm run build
+      
+      - name: 📦 Create web archive
+        run: |
+          mkdir -p release
+          cd dist && zip -r ../release/svgview-web-${{ github.event.inputs.version }}.zip . && cd ..
+      
+      - name: 🤖 Build Android APK
+        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all'
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          cd ..
+          cp android/app/build/outputs/apk/release/*.apk release/ || true
+      
+      - name: 🍎 Build iOS (macOS only)
+        if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
+        run: |
+          npx cap sync ios
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -derivedDataPath build \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO
+          cd ../..
+          mkdir -p release/ios
+          cp -r ios/App/build/Release-iphoneos/*.app release/ios/ || true
+      
+      - name: 📝 Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: "svgview ${{ github.event.inputs.version }}"
+          draft: false
+          prerelease: false
+          files: release/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
