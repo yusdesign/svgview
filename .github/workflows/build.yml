@@ -156,7 +156,7 @@ jobs:
           echo "📁 iOS directory:"
           ls -la
     
-          # Check if workspace exists at ios/ level
+          # Check for workspace or project
           if [ -d "App.xcworkspace" ]; then
             echo "✅ Found workspace at ios/App.xcworkspace"
             xcodebuild -workspace App.xcworkspace \
@@ -174,10 +174,19 @@ jobs:
               -derivedDataPath build \
               -destination 'generic/platform=iOS' \
               CODE_SIGNING_ALLOWED=NO
+          elif [ -d "App/App.xcodeproj" ]; then
+            echo "✅ Found project at ios/App/App.xcodeproj"
+            cd App
+            xcodebuild -project App.xcodeproj \
+              -scheme App \
+              -configuration Debug \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
           else
-            echo "❌ No workspace found!"
-            echo "📁 Searching for workspace..."
-            find . -name "*.xcworkspace"
+            echo "❌ No workspace or project found!"
+            echo "📁 Searching for workspace/project..."
+            find . -name "*.xcworkspace" -o -name "*.xcodeproj"
             exit 1
           fi
 

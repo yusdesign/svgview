@@ -162,9 +162,17 @@ jobs:
               -derivedDataPath build \
               -destination 'generic/platform=iOS' \
               CODE_SIGNING_ALLOWED=NO
+          elif [ -d "App/App.xcodeproj" ]; then
+            cd App
+            xcodebuild -project App.xcodeproj \
+              -scheme App \
+              -configuration Release \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
           else
-            echo "❌ No workspace found!"
-            find . -name "*.xcworkspace"
+            echo "❌ No workspace or project found!"
+            find . -name "*.xcworkspace" -o -name "*.xcodeproj"
             exit 1
           fi
   
