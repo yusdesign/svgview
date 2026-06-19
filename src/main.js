@@ -146,11 +146,215 @@ async function pickDirectory() {
     if (isNative()) {
       await nativePickDirectory();
     } else {
-      await webPickFiles();
+      await webPickDirectory();
     }
   } catch (error) {
     console.error('Error picking directory:', error);
     showNotification('❌ Failed to pick directory', 'error');
+  }
+}
+
+async function webPickDirectory() {
+  try {
+    // Use webkitdirectory for folder selection with browse UI
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.directory = true; // For older browsers
+    
+    // Add accept filter for SVG
+    input.accept = '.svg,image/svg+xml';
+    
+    // Show nice prompt
+    const folderName = prompt('📁 Enter a name for this folder collection:', new Date().toLocaleDateString());
+    if (!folderName) return;
+
+    const files = await new Promise((resolve) => {
+      input.onchange = (e) => resolve(e.target.files);
+      input.click();
+    });
+
+    if (!files || files.length === 0) {
+      showNotification('📁 No files selected', 'info');
+      return;
+    }
+
+    // Process files from the selected folder
+    const folderPath = folderName;
+    
+    // Check if folder already exists
+    if (svgLibrary[folderPath] && svgLibrary[folderPath].length > 0) {
+      const confirm = window.confirm(
+        `📁 "${folderName}" already has ${svgLibrary[folderPath].length} SVGs.\n\nDo you want to add new files from this folder?`
+      );
+      if (!confirm) return;
+    }
+
+    if (!svgLibrary[folderPath]) {
+      svgLibrary[folderPath] = [];
+    }
+
+    let loadedCount = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!isSVG(file.name)) continue;
+
+      const exists = svgLibrary[folderPath].some(s => s.name === file.name);
+      if (exists) continue;
+
+      try {
+        const content = await file.text();
+        if (!content.includes('<svg') && !content.includes('<?xml')) continue;
+
+        svgLibrary[folderPath].push({
+          name: file.name,
+          content: content,
+          size: file.size,
+          type: 'svg'
+        });
+        loadedCount++;
+      } catch (error) {
+        console.error('Error reading file:', file.name, error);
+      }
+    }
+
+    saveLibrary();
+    rebuildFlatList();
+    refreshGallery();
+    updateUI();
+    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
+  } catch (error) {
+    console.error('Web directory picker failed:', error);
+    showNotification('❌ Failed to pick directory', 'error');
+  }
+}
+
+async function nativePickDirectory() {
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    
+    // Try to use the native file picker if available
+    try {
+      // Some Capacitor plugins support directory picker
+      const result = await Filesystem.readdir({
+        path: '',
+        directory: Directory.Documents
+      });
+
+      // Show folders in a dropdown
+      const folders = result.files.filter(f => f.type === 'directory' && f.name !== '..');
+      
+      if (folders.length === 0) {
+        // If no folders, offer to create one or browse from root
+        const createNew = confirm('📁 No folders found. Would you like to create a new folder?');
+        if (createNew) {
+          const newFolder = prompt('📁 Enter new folder name:', 'SVG_Library');
+          if (newFolder) {
+            await Filesystem.mkdir({
+              path: newFolder,
+              directory: Directory.Documents
+            });
+            showNotification(`✅ Created folder: ${newFolder}`, 'success');
+            // Retry after creation
+            await nativePickDirectory();
+          }
+        } else {
+          // Fallback to web picker
+          await webPickDirectory();
+        }
+        return;
+      }
+
+      // Build a nice UI for folder selection
+      const folderOptions = folders.map(f => f.name);
+      folderOptions.push('📁 Browse from root');
+      folderOptions.push('📁 Create new folder');
+      
+      const selected = prompt(
+        `📁 Available folders:\n\n${folders.map((f, i) => `  ${i+1}. ${f.name}`).join('\n')}\n\nOptions:\n  📁 Browse from root\n  📁 Create new folder\n\nEnter folder name:`,
+        folders[0]?.name || ''
+      );
+      
+      if (!selected) return;
+      
+      if (selected === '📁 Browse from root') {
+        // Try root directory
+        const rootResult = await Filesystem.readdir({
+          path: '',
+          directory: Directory.ExternalStorage || Directory.Documents
+        });
+        // ... handle root browsing
+        showNotification('📁 Browse from root - select a folder', 'info');
+        return;
+      }
+      
+      if (selected === '📁 Create new folder') {
+        const newFolder = prompt('📁 Enter new folder name:', 'SVG_Library');
+        if (newFolder) {
+          await Filesystem.mkdir({
+            path: newFolder,
+            directory: Directory.Documents
+          });
+          showNotification(`✅ Created folder: ${newFolder}`, 'success');
+          await nativePickDirectory();
+        }
+        return;
+      }
+
+      // Load from selected folder
+      const folderName = selected;
+      const folderFiles = await Filesystem.readdir({
+        path: folderName,
+        directory: Directory.Documents
+      });
+
+      const svgFiles = folderFiles.files.filter(f => isSVG(f.name));
+      
+      if (svgFiles.length === 0) {
+        showNotification(`📁 No SVG files found in "${folderName}"`, 'info');
+        return;
+      }
+
+      if (!svgLibrary[folderName]) {
+        svgLibrary[folderName] = [];
+      }
+
+      let loadedCount = 0;
+      for (const file of svgFiles) {
+        const exists = svgLibrary[folderName].some(s => s.name === file.name);
+        if (exists) continue;
+
+        const content = await Filesystem.readFile({
+          path: `${folderName}/${file.name}`,
+          directory: Directory.Documents,
+          encoding: 'utf8'
+        });
+
+        svgLibrary[folderName].push({
+          name: file.name,
+          content: content.data,
+          size: file.size || 0,
+          type: 'svg'
+        });
+        loadedCount++;
+      }
+
+      saveLibrary();
+      rebuildFlatList();
+      refreshGallery();
+      updateUI();
+      showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
+      
+    } catch (error) {
+      console.error('Native directory picker failed:', error);
+      // Fallback to web picker
+      showNotification('📁 Using web file picker instead', 'info');
+      await webPickDirectory();
+    }
+  } catch (error) {
+    console.error('Native picker failed:', error);
+    await webPickDirectory();
   }
 }
 
@@ -218,82 +422,6 @@ async function webPickFiles() {
   } catch (error) {
     console.error('Web picker failed:', error);
     showNotification('❌ Failed to pick files', 'error');
-  }
-}
-
-async function nativePickDirectory() {
-  try {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    
-    // For native, we'll need to use a different approach
-    // Show a prompt for folder path or use file picker
-    const result = await Filesystem.readdir({
-      path: '',
-      directory: Directory.Documents
-    });
-
-    // Simple UI to pick from available folders
-    const folders = result.files.filter(f => f.type === 'directory');
-    
-    if (folders.length === 0) {
-      showNotification('📁 No folders found in Documents', 'info');
-      return;
-    }
-
-    // Build a simple selection UI
-    const folderNames = folders.map(f => f.name);
-    const folderName = prompt(
-      `📁 Available folders:\n${folderNames.map((f, i) => `${i+1}. ${f}`).join('\n')}\n\nEnter folder name to load:`,
-      folderNames[0]
-    );
-    
-    if (!folderName) return;
-
-    const folderFiles = await Filesystem.readdir({
-      path: folderName,
-      directory: Directory.Documents
-    });
-
-    const svgFiles = folderFiles.files.filter(f => isSVG(f.name));
-    
-    if (svgFiles.length === 0) {
-      showNotification(`📁 No SVG files found in "${folderName}"`, 'info');
-      return;
-    }
-
-    if (!svgLibrary[folderName]) {
-      svgLibrary[folderName] = [];
-    }
-
-    let loadedCount = 0;
-    for (const file of svgFiles) {
-      const exists = svgLibrary[folderName].some(s => s.name === file.name);
-      if (exists) continue;
-
-      const content = await Filesystem.readFile({
-        path: `${folderName}/${file.name}`,
-        directory: Directory.Documents,
-        encoding: 'utf8'
-      });
-
-      svgLibrary[folderName].push({
-        name: file.name,
-        content: content.data,
-        size: file.size || 0,
-        type: 'svg'
-      });
-      loadedCount++;
-    }
-
-    saveLibrary();
-    rebuildFlatList();
-    refreshGallery();
-    updateUI();
-    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
-  } catch (error) {
-    console.error('Native picker failed:', error);
-    showNotification('❌ Native picker failed, falling back to web picker', 'error');
-    await webPickFiles();
   }
 }
 
@@ -472,6 +600,24 @@ function setupApp() {
   `;
 
   setupCounter(document.querySelector('#counter'));
+
+  // In setupApp(), add a custom folder picker UI
+  function setupFolderPickerUI() {
+    const pickBtn = document.querySelector('#pickDirectoryBtn');
+    if (pickBtn) {
+      // Add a dropdown for folder management
+      const folderManager = document.createElement('div');
+      folderManager.className = 'folder-manager';
+      folderManager.innerHTML = `
+        <button class="folder-manager-btn" title="Manage Folders">📁</button>
+        <div class="folder-dropdown hidden">
+          <div class="folder-list"></div>
+          <button class="create-folder-btn">➕ New Folder</button>
+        </div>
+      `;
+      pickBtn.parentNode.insertBefore(folderManager, pickBtn.nextSibling);
+    }
+  }
 
   // Quick load button
   const quickLoadBtn = document.querySelector('#quickLoadBtn');

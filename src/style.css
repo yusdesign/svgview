@@ -125,10 +125,10 @@ button:focus-visible {
 
 #center .framework {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 52px;
-  height: 52px;
+  bottom: -10px;
+  right: -10px;
+  width: 40px;
+  height: 40px;
   animation: slideUp 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
   animation-delay: 0.3s;
   opacity: 0;
@@ -136,10 +136,10 @@ button:focus-visible {
 
 #center .vite {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 52px;
-  height: 52px;
+  top: -10px;
+  left: -10px;
+  width: 40px;
+  height: 40px;
   animation: slideDown 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
   animation-delay: 0.3s;
   opacity: 0;

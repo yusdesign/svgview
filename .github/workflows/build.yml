@@ -152,34 +152,47 @@ jobs:
   
       - name: 🏗️ Build iOS app
         run: |
-          cd ios/App
-          echo "📁 iOS App directory:"
+          cd ios
+          echo "📁 iOS directory:"
           ls -la
-      
-          # Build with xcodebuild
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Debug \
-            -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO
-      
-          # Show where the app was built
-          echo "🔍 Build output location:"
-          find . -name "*.app" -type d 2>/dev/null || echo "No .app files found"
-  
+    
+          # Check if workspace exists at ios/ level
+          if [ -d "App.xcworkspace" ]; then
+            echo "✅ Found workspace at ios/App.xcworkspace"
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Debug \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          elif [ -d "App/App.xcworkspace" ]; then
+            echo "✅ Found workspace at ios/App/App.xcworkspace"
+            cd App
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Debug \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "❌ No workspace found!"
+            echo "📁 Searching for workspace..."
+            find . -name "*.xcworkspace"
+            exit 1
+          fi
+
       - name: 📤 Upload iOS build
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
           path: |
-            ios/App/build/Build/Products/Debug-iphoneos/
-            ios/App/build/Debug-iphoneos/
             ios/build/Build/Products/Debug-iphoneos/
             ios/build/Debug-iphoneos/
+            ios/App/build/Build/Products/Debug-iphoneos/
+            ios/App/build/Debug-iphoneos/
           retention-days: 30
           if-no-files-found: warn
-
+    
   release:
     name: 🚀 Create Release
     runs-on: ubuntu-latest

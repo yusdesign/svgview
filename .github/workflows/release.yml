@@ -146,23 +146,27 @@ jobs:
   
       - name: 🏗️ Build iOS app
         run: |
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO
-  
-      - name: 📤 Upload iOS build
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-ios
-          path: |
-            ios/App/build/Build/Products/Release-iphoneos/
-            ios/App/build/Release-iphoneos/
-          retention-days: 30
-          if-no-files-found: warn
+          cd ios
+          if [ -d "App.xcworkspace" ]; then
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          elif [ -d "App/App.xcworkspace" ]; then
+            cd App
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "❌ No workspace found!"
+            find . -name "*.xcworkspace"
+            exit 1
+          fi
   
   create-release:
     name: 📦 Create Release ${{ github.event.inputs.version }}
