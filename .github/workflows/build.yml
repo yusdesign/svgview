@@ -118,45 +118,44 @@ jobs:
     name: 🍎 Build iOS App
     runs-on: macos-latest
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
-  
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-    
+  
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
-    
+  
       - name: 📦 Install dependencies
-        run: |
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
-    
-      - name: 📱 Setup Capacitor
-        run: |
-          npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist || \
-          node_modules/.bin/cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
-    
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      - name: 🌍 Install Capacitor globally
+        run: npm install -g @capacitor/cli
+
+      - name: ✅ Verify Capacitor
+        run: cap --version
+
+      - name: 📱 Initialize Capacitor
+        run: cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
+  
       - name: 🍎 Add iOS platform
-        run: |
-          npx cap add ios || \
-          node_modules/.bin/cap add ios
-    
+        run: cap add ios
+  
       - name: 🏗️ Build web app
         run: npm run build
-    
+  
       - name: 🔄 Sync Capacitor
-        run: |
-          npx cap sync ios || \
-          node_modules/.bin/cap sync ios
-    
+        run: cap sync ios
+  
       - name: 🏗️ Build iOS app
         run: |
           cd ios/App
           echo "📁 iOS App directory:"
           ls -la
-        
+      
           # Build with xcodebuild
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
@@ -164,11 +163,11 @@ jobs:
             -derivedDataPath build \
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO
-        
+      
           # Show where the app was built
           echo "🔍 Build output location:"
           find . -name "*.app" -type d 2>/dev/null || echo "No .app files found"
-    
+  
       - name: 📤 Upload iOS build
         uses: actions/upload-artifact@v4
         with:

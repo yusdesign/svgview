@@ -115,43 +115,35 @@ jobs:
     name: 🍎 Build iOS ${{ github.event.inputs.version }}
     runs-on: macos-latest
     if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
-  
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-    
+  
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
-    
+  
       - name: 📦 Install dependencies
-        run: |
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
-          # Explicitly install Capacitor CLI
-          npm install -g @capacitor/cli
-          # Verify installation
-          cap --version || npx cap --version
-    
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      - name: 🌍 Install Capacitor globally
+        run: npm install -g @capacitor/cli
+  
       - name: 📱 Initialize Capacitor
-        run: |
-          cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist || \
-          npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
-    
+        run: cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
+  
       - name: 🍎 Install Capacitor iOS
-        run: |
-          cap add ios || \
-          npx cap add ios
-    
+        run: cap add ios
+  
       - name: 🏗️ Build web app
         run: npm run build
-    
+  
       - name: 🔄 Sync Capacitor
-        run: |
-          cap sync ios || \
-          npx cap sync ios
-    
+        run: cap sync ios
+  
       - name: 🏗️ Build iOS app
         run: |
           cd ios/App
@@ -161,7 +153,7 @@ jobs:
             -derivedDataPath build \
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO
-    
+  
       - name: 📤 Upload iOS build
         uses: actions/upload-artifact@v4
         with:
