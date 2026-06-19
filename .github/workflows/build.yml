@@ -117,45 +117,71 @@ jobs:
     name: 🍎 Build iOS App
     runs-on: macos-latest
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
-    
+  
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-      
+    
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
-      
+    
       - name: 📦 Install dependencies
         run: npm install
-
-      - name: 🌍 Install Capacitor globally
-        run: npm install -g @capacitor/cli
-
+    
+      - name: 🔍 Verify Capacitor
+        run: npx cap --version
+    
       - name: 📱 Initialize Capacitor
         run: npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
-      
+    
       - name: 🍎 Install Capacitor iOS
         run: npx cap add ios
-      
+    
       - name: 🏗️ Build web app
         run: npm run build
-      
+    
       - name: 🔄 Sync Capacitor
         run: npx cap sync ios
-      
+    
+      - name: 📦 Install CocoaPods
+        run: |
+          cd ios/App
+          pod install || echo "No Podfile found, skipping"
+    
       - name: 🏗️ Build iOS app
         run: |
-          cd ios
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Debug \
-            -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO
-      
+          cd ios/App
+          # Check what's in the directory
+          echo "📁 Contents of ios/App:"
+          ls -la
+        
+          # Try different approaches
+          if [ -d "App.xcworkspace" ]; then
+            echo "📱 Building with workspace..."
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Debug \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          elif [ -d "App.xcodeproj" ]; then
+            echo "📱 Building with project..."
+            xcodebuild -project App.xcodeproj \
+              -scheme App \
+              -configuration Debug \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "❌ No workspace or project found!"
+            echo "📁 Full directory tree:"
+            find . -type d -name "*.xcworkspace" -o -name "*.xcodeproj"
+            exit 1
+          fi
+    
       - name: 📤 Upload iOS build
         uses: actions/upload-artifact@v4
         with:

@@ -82,15 +82,35 @@ jobs:
         run: |
           npx cap sync ios
           cd ios/App
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO
+    
+          # Install CocoaPods if needed
+          pod install || echo "No Podfile found, skipping"
+    
+          # Build with workspace or project
+          if [ -d "App.xcworkspace" ]; then
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          elif [ -d "App.xcodeproj" ]; then
+            xcodebuild -project App.xcodeproj \
+              -scheme App \
+              -configuration Release \
+              -derivedDataPath build \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "❌ No workspace or project found!"
+            find . -name "*.xcworkspace" -o -name "*.xcodeproj"
+            exit 1
+          fi
+    
           cd ../..
           mkdir -p release/ios
           cp -r ios/App/build/Release-iphoneos/*.app release/ios/ || true
+          cp -r ios/App/build/Debug-iphoneos/*.app release/ios/ || true
       
       - name: 📝 Create Release
         uses: softprops/action-gh-release@v1
