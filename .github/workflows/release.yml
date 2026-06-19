@@ -48,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: 📱 Initialize Capacitor
-        run: npx cap init ${{ env.APP_ID }} ${{ env.APP_NAME }} --web-dir=dist
+        run: npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
       
       - name: 📱 Install Capacitor platforms
         run: |

@@ -82,8 +82,8 @@ jobs:
         run: npm install -g @capacitor/cli
 
       - name: 📱 Initialize Capacitor
-        run: npx cap init ${{ env.APP_ID }} ${{ env.APP_NAME }} --web-dir=dist
-      
+        run: npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
+              
       - name: 📱 Install Capacitor Android
         run: npx cap add android
       
@@ -135,7 +135,7 @@ jobs:
         run: npm install -g @capacitor/cli
 
       - name: 📱 Initialize Capacitor
-        run: npx cap init ${{ env.APP_ID }} ${{ env.APP_NAME }} --web-dir=dist
+        run: npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
       
       - name: 🍎 Install Capacitor iOS
         run: npx cap add ios
