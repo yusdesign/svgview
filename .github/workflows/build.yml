@@ -86,7 +86,9 @@ jobs:
         run: npx cap init "${{ env.APP_NAME }}" "${{ env.APP_ID }}" --web-dir=dist
               
       - name: 📱 Install Capacitor Android
-        run: npx cap add android
+        run: |
+          rm -rf android
+          npx cap add android
       
       - name: 🏗️ Build web app
         run: npm run build
