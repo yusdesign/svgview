@@ -230,83 +230,57 @@ async function webPickDirectory() {
   }
 }
 
-async function nativePickDirectory() {
+async function nativePickFiles() {
   try {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     
-    // In Capacitor v7, you can use the new picker API
-    // First, check if we can use the native file picker
-    try {
-      // Try to pick a directory using the native picker
-      // Note: This requires Capacitor v7+ with the new picker API
-      const result = await Filesystem.pickDirectory({
-        multiple: false,
-        // On Android, this opens the system folder picker
-      });
-      
-      if (!result || !result.path) {
-        showNotification('📁 No directory selected', 'info');
-        return;
-      }
-      
-      // Read the directory contents
-      const dirContents = await Filesystem.readdir({
-        path: result.path,
-        directory: Directory.ExternalStorage
-      });
-      
-      const svgFiles = dirContents.files.filter(f => 
-        f.type === 'file' && isSVG(f.name)
-      );
-      
-      if (svgFiles.length === 0) {
-        showNotification('📁 No SVG files in selected directory', 'info');
-        return;
-      }
-      
-      // Get folder name
-      const folderName = result.path.split('/').pop() || 'Selected Folder';
-      
-      // Load SVGs
-      if (!svgLibrary[folderName]) {
-        svgLibrary[folderName] = [];
-      }
-      
-      let loadedCount = 0;
-      for (const file of svgFiles) {
-        const exists = svgLibrary[folderName].some(s => s.name === file.name);
-        if (exists) continue;
-        
-        const content = await Filesystem.readFile({
-          path: `${result.path}/${file.name}`,
-          directory: Directory.ExternalStorage,
-          encoding: 'utf8'
-        });
-        
-        svgLibrary[folderName].push({
-          name: file.name,
-          content: content.data,
-          size: file.size || 0,
-          type: 'svg'
-        });
-        loadedCount++;
-      }
-      
-      saveLibrary();
-      rebuildFlatList();
-      refreshGallery();
-      updateUI();
-      showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
-      
-    } catch (pickerError) {
-      // Fallback to manual browsing if picker is not available
-      console.log('Picker not available, using manual browse:', pickerError);
-      await browseDirectoriesManually();
+    // Use the native file picker for multiple files
+    const result = await Filesystem.pickFiles({
+      multiple: true,
+      extensions: ['svg']
+    });
+    
+    if (!result || !result.files || result.files.length === 0) {
+      showNotification('📁 No files selected', 'info');
+      return;
     }
     
+    // Ask for folder name
+    const folderName = prompt('📁 Enter folder name for these SVGs:', 'My SVGs');
+    if (!folderName) return;
+    
+    if (!svgLibrary[folderName]) {
+      svgLibrary[folderName] = [];
+    }
+    
+    let loadedCount = 0;
+    for (const file of result.files) {
+      const exists = svgLibrary[folderName].some(s => s.name === file.name);
+      if (exists) continue;
+      
+      const content = await Filesystem.readFile({
+        path: file.path,
+        directory: Directory.ExternalStorage,
+        encoding: 'utf8'
+      });
+      
+      svgLibrary[folderName].push({
+        name: file.name,
+        content: content.data,
+        size: file.size || 0,
+        type: 'svg'
+      });
+      loadedCount++;
+    }
+    
+    saveLibrary();
+    rebuildFlatList();
+    refreshGallery();
+    updateUI();
+    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
+    
   } catch (error) {
-    console.error('Native picker failed:', error);
-    showNotification('📁 Using web file picker instead', 'info');
+    console.error('Native file picker failed:', error);
     await webPickDirectory();
   }
 }
@@ -484,6 +458,86 @@ async function webPickFiles() {
   }
 }
 
+function showSettings() {
+  // Check if settings modal exists
+  let settingsModal = document.querySelector('#settingsModal');
+  if (!settingsModal) {
+    settingsModal = document.createElement('div');
+    settingsModal.id = 'settingsModal';
+    settingsModal.className = 'modal settings-modal';
+    settingsModal.innerHTML = `
+      <div class="modal-content settings-content">
+        <button class="modal-close" id="settingsClose">✕</button>
+        <h2>⚙️ Settings</h2>
+        
+        <div class="settings-section">
+          <h3>Documentation</h3>
+          <p>Your questions, answered</p>
+          <ul>
+            <li>
+              <a href="https://vite.dev/" target="_blank">
+                <img class="logo" src="${viteLogo}" alt="" />
+                Explore Vite
+              </a>
+            </li>
+            <li>
+              <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
+                <img class="button-icon" src="${javascriptLogo}" alt="">
+                Learn more
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="settings-section">
+          <h3>Connect with us</h3>
+          <p>Join the Vite community</p>
+          <ul>
+            <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
+            <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
+            <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
+          </ul>
+        </div>
+        
+        <div class="settings-section">
+          <h3>📱 App Info</h3>
+          <p>svgview v0.0.0</p>
+          <p>Built with ❤️ using Vite + Capacitor</p>
+          <button id="clearAllDataBtn" class="danger-btn">🗑️ Clear All Data</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(settingsModal);
+    
+    // Close button
+    settingsModal.querySelector('#settingsClose').addEventListener('click', () => {
+      settingsModal.classList.remove('active');
+    });
+    
+    // Click outside to close
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.classList.remove('active');
+      }
+    });
+    
+    // Clear all data
+    settingsModal.querySelector('#clearAllDataBtn').addEventListener('click', () => {
+      if (confirm('⚠️ Delete all SVGs from library?')) {
+        svgLibrary = {};
+        allSvgs = [];
+        saveLibrary();
+        refreshGallery();
+        updateUI();
+        showNotification('🗑️ All data cleared', 'info');
+        settingsModal.classList.remove('active');
+      }
+    });
+  }
+  
+  settingsModal.classList.add('active');
+}
+
 // ===== GALLERY =====
 function refreshGallery() {
   const existingGallery = document.querySelector('#svg-gallery');
@@ -499,14 +553,17 @@ function refreshGallery() {
           <span id="folderCount" class="folder-count">0 folders</span>
         </div>
         <div class="gallery-actions">
-          <button id="pickDirectoryBtn" class="pick-files-btn">📁 Pick Directory</button>
           <span id="fileCount" class="file-count">0 SVGs</span>
-          <button id="clearGalleryBtn" class="clear-btn" title="Clear Library">🗑️</button>
         </div>
       </div>
       <div id="gallery" class="gallery-grid"></div>
     `;
     
+    const settingsBtn = document.querySelector('#settingsBtn');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', showSettings);
+    }
+        
     const nextSteps = document.querySelector('#next-steps');
     if (nextSteps) {
       nextSteps.after(gallerySection);
@@ -612,48 +669,10 @@ function setupApp() {
       <div>
         <h1>🌇 svgview</h1>
         <p>Your local SVG library</p>
-        <div class="quick-actions">
-          <button id="quickLoadBtn" class="quick-load-btn">📁 Pick Directory</button>
-          <span class="shortcut-hint">or press <kbd>⌘O</kbd> / <kbd>Ctrl+O</kbd></span>
-        </div>
       </div>
       <button id="counter" type="button" class="counter"></button>
     </section>
-
     <div class="ticks"></div>
-
-    <section id="next-steps">
-      <div id="docs">
-        <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-        <h2>Documentation</h2>
-        <p>Your questions, answered</p>
-        <ul>
-          <li>
-            <a href="https://vite.dev/" target="_blank">
-              <img class="logo" src="${viteLogo}" alt="" />
-              Explore Vite
-            </a>
-          </li>
-          <li>
-            <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-              <img class="button-icon" src="${javascriptLogo}" alt="">
-              Learn more
-            </a>
-          </li>
-        </ul>
-      </div>
-      <div id="social">
-        <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-        <h2>Connect with us</h2>
-        <p>Join the Vite community</p>
-        <ul>
-          <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-          <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-          <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-        </ul>
-      </div>
-    </section>
-
     <div class="ticks"></div>
     <section id="spacer"></section>
   `;
@@ -689,9 +708,18 @@ function setupApp() {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
-      e.preventDefault();
-      pickDirectory();
+    // Only for web platforms (not Android/iOS)
+    if (!isNative()) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        pickDirectory();
+      }
+    }
+    if (e.key === 'Escape') {
+      const modal = document.querySelector('.modal');
+      if (modal && modal.classList.contains('active')) {
+        modal.classList.remove('active');
+      }
     }
   });
 
