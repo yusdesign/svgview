@@ -108,8 +108,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-android
-          path: android/app/build/outputs/apk/release/*.apk
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
           retention-days: 30
 
   build-ios-release:
