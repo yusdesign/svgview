@@ -269,32 +269,49 @@ async function nativePickDirectory() {
   try {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     
-    // Use Capacitor's native file picker
-    const result = await Filesystem.pickFiles({
-      multiple: true,
-      extensions: ['svg']
+    // Capacitor 7+ has pickDirectory() built into Filesystem
+    const result = await Filesystem.pickDirectory({
+      // Opens the native Android folder picker
     });
     
-    if (!result || !result.files || result.files.length === 0) {
-      showNotification('📁 No files selected', 'info');
+    if (!result || !result.path) {
+      showNotification('📁 No directory selected', 'info');
       return;
     }
     
-    const folderName = prompt('📁 Name this collection:', 'My SVGs');
-    if (!folderName) return;
+    // Get the actual folder path
+    const folderPath = result.path;
+    const folderName = folderPath.split('/').pop() || 'Selected Folder';
     
+    // Read the directory
+    const dirContents = await Filesystem.readdir({
+      path: folderPath,
+      directory: Directory.ExternalStorage
+    });
+    
+    // Filter for SVG files
+    const svgFiles = dirContents.files.filter(f => 
+      f.type === 'file' && isSVG(f.name)
+    );
+    
+    if (svgFiles.length === 0) {
+      showNotification(`📁 No SVG files found in "${folderName}"`, 'info');
+      return;
+    }
+    
+    // Load the files
     if (!svgLibrary[folderName]) {
       svgLibrary[folderName] = [];
     }
     
     let loadedCount = 0;
-    for (const file of result.files) {
+    for (const file of svgFiles) {
       const exists = svgLibrary[folderName].some(s => s.name === file.name);
       if (exists) continue;
       
       try {
         const content = await Filesystem.readFile({
-          path: file.path,
+          path: `${folderPath}/${file.name}`,
           directory: Directory.ExternalStorage,
           encoding: 'utf8'
         });
@@ -306,27 +323,10 @@ async function nativePickDirectory() {
             size: file.size || 0,
             type: 'svg'
           });
-        } else {
-          // Add as placeholder if not valid SVG
-          svgLibrary[folderName].push({
-            name: file.name,
-            content: generatePlaceholderSVG(file.name, '#ef4444'),
-            size: file.size || 0,
-            type: 'svg',
-            isPlaceholder: true
-          });
+          loadedCount++;
         }
-        loadedCount++;
       } catch (error) {
         console.error('Error loading SVG:', file.name, error);
-        svgLibrary[folderName].push({
-          name: file.name,
-          content: generatePlaceholderSVG(file.name, '#ef4444'),
-          size: file.size || 0,
-          type: 'svg',
-          isPlaceholder: true
-        });
-        loadedCount++;
       }
     }
     
@@ -337,9 +337,9 @@ async function nativePickDirectory() {
     showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
     
   } catch (error) {
-    console.error('Native picker failed:', error);
-    showNotification('📁 Using web picker instead', 'info');
-    await webPickDirectory();
+    console.error('Directory picker failed:', error);
+    // Fallback to file picker
+    await nativePickFiles();
   }
 }
 
