@@ -267,62 +267,157 @@ async function webPickDirectory() {
 
 async function nativePickDirectory() {
   try {
-    // Import the FilePicker plugin (you need to install it)
-    const { FilePicker } = await import('@capacitor-community/file-picker');
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
     
-    // THIS opens the actual Android system folder picker
-    const result = await FilePicker.pickDirectory();
+    // Try the built-in picker first
+    let result;
+    try {
+      result = await Filesystem.pickDirectory();
+    } catch (e) {
+      console.log('pickDirectory not available, using manual browse');
+      // Fall through to manual browse
+    }
     
-    if (!result || !result.path) {
-      showNotification('📁 No directory selected', 'info');
+    if (result && result.path) {
+      // Use the result
+      await loadFolder(result.path);
       return;
     }
     
-    // Now you have the real folder path the user picked
-    const folderPath = result.path;
-    const folderName = folderPath.split('/').pop() || 'Selected Folder';
+    // Manual folder browser using readdir
+    let currentPath = '';
+    let currentDir = Directory.ExternalStorage;
     
-    // Read files from the picked folder
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const dirContents = await Filesystem.readdir({
-      path: folderPath,
-      directory: Directory.ExternalStorage
-    });
+    // Test if ExternalStorage works
+    try {
+      await Filesystem.readdir({ path: '', directory: Directory.ExternalStorage });
+      currentDir = Directory.ExternalStorage;
+    } catch {
+      currentDir = Directory.Documents;
+    }
     
-    // ... rest of loading logic
+    // Show a simple folder browser UI
+    await browseFolders(currentPath, currentDir);
+    
   } catch (error) {
     console.error('Picker failed:', error);
-    showNotification('❌ Folder picker failed', 'error');
+    await webPickDirectory();
   }
 }
 
-function showFolderPickerUI(folders) {
-  // Create a modal/overlay with folder list
-  const overlay = document.createElement('div');
-  overlay.className = 'folder-picker-overlay';
-  overlay.innerHTML = `
-    <div class="folder-picker-modal">
-      <h3>📁 Select Folder</h3>
-      <div class="folder-list">
-        ${folders.map(f => `
-          <div class="folder-item" data-path="${f.name}">
-            📂 ${f.name}
-          </div>
-        `).join('')}
-      </div>
-      <button id="cancelFolderPicker">Cancel</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+async function browseFolders(path, directory) {
+  const { Filesystem } = await import('@capacitor/filesystem');
   
-  // Add click handlers
-  overlay.querySelectorAll('.folder-item').forEach(item => {
-    item.addEventListener('click', async () => {
-      const path = item.dataset.path;
-      await loadFolderContents(path);
-      overlay.remove();
+  try {
+    const result = await Filesystem.readdir({
+      path: path,
+      directory: directory
     });
-  });
+    
+    const folders = result.files.filter(f => f.type === 'directory');
+    const svgs = result.files.filter(f => f.type === 'file' && isSVG(f.name));
+    
+    // Build a list for the user
+    let message = `📁 ${path || 'Storage Root'}\n`;
+    message += `─'.'─'─'─'─'─'─'─'─'─'\n`;
+    message += `📂 ${folders.length} folders\n`;
+    message += `📄 ${svgs.length} SVGs\n`;
+    message += `─'.'─'─'─'─'─'─'─'─'─'\n\n`;
+    message += `📂 Enter folder name to open\n`;
+    if (path) message += `🔙 Type ".." to go back\n`;
+    message += `📂 Type "load" to load SVGs\n`;
+    message += `❌ Type "cancel" to exit\n`;
+    
+    const choice = prompt(message, '');
+    if (!choice || choice === 'cancel') return;
+    
+    if (choice === 'load') {
+      // Load SVGs from current folder
+      await loadFolderContents(path, directory);
+      return;
+    }
+    
+    if (choice === '..' && path) {
+      const parent = path.split('/').slice(0, -1).join('/');
+      await browseFolders(parent, directory);
+      return;
+    }
+    
+    // Check if choice is a folder
+    const target = folders.find(f => f.name === choice);
+    if (target) {
+      const newPath = path ? `${path}/${choice}` : choice;
+      await browseFolders(newPath, directory);
+      return;
+    }
+    
+    // Invalid choice, try again
+    await browseFolders(path, directory);
+    
+  } catch (error) {
+    console.error('Browse error:', error);
+    showNotification('❌ Error browsing', 'error');
+  }
+}
+
+async function loadFolderContents(path, directory) {
+  try {
+    const { Filesystem } = await import('@capacitor/filesystem');
+    
+    const result = await Filesystem.readdir({
+      path: path,
+      directory: directory
+    });
+    
+    const svgFiles = result.files.filter(f => f.type === 'file' && isSVG(f.name));
+    const folderName = path.split('/').pop() || 'Root';
+    
+    if (svgFiles.length === 0) {
+      showNotification(`📁 No SVG files in "${folderName}"`, 'info');
+      return;
+    }
+    
+    if (!svgLibrary[folderName]) {
+      svgLibrary[folderName] = [];
+    }
+    
+    let loadedCount = 0;
+    for (const file of svgFiles) {
+      const exists = svgLibrary[folderName].some(s => s.name === file.name);
+      if (exists) continue;
+      
+      try {
+        const filePath = path ? `${path}/${file.name}` : file.name;
+        const content = await Filesystem.readFile({
+          path: filePath,
+          directory: directory,
+          encoding: 'utf8'
+        });
+        
+        if (content.data && content.data.includes('<svg')) {
+          svgLibrary[folderName].push({
+            name: file.name,
+            content: content.data,
+            size: file.size || 0,
+            type: 'svg'
+          });
+          loadedCount++;
+        }
+      } catch (error) {
+        console.error('Error loading SVG:', file.name, error);
+      }
+    }
+    
+    saveLibrary();
+    rebuildFlatList();
+    refreshGallery();
+    updateUI();
+    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
+    
+  } catch (error) {
+    console.error('Error loading folder:', error);
+    showNotification('❌ Failed to load folder', 'error');
+  }
 }
 
 // ===== GALLERY =====
