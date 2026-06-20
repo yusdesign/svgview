@@ -267,24 +267,32 @@ async function webPickDirectory() {
 
 async function nativePickDirectory() {
   try {
-    const { Browser } = await import('@capacitor/browser');
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    // Import the FilePicker plugin (you need to install it)
+    const { FilePicker } = await import('@capacitor-community/file-picker');
     
-    // On Android, we can use the Storage Access Framework
-    // This opens the system folder picker
-    const result = await Filesystem.readdir({
-      path: '',
+    // THIS opens the actual Android system folder picker
+    const result = await FilePicker.pickDirectory();
+    
+    if (!result || !result.path) {
+      showNotification('📁 No directory selected', 'info');
+      return;
+    }
+    
+    // Now you have the real folder path the user picked
+    const folderPath = result.path;
+    const folderName = folderPath.split('/').pop() || 'Selected Folder';
+    
+    // Read files from the picked folder
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const dirContents = await Filesystem.readdir({
+      path: folderPath,
       directory: Directory.ExternalStorage
     });
     
-    // Show a proper UI with folders
-    const folders = result.files.filter(f => f.type === 'directory');
-    
-    // Render folders in a list view
-    showFolderPickerUI(folders);
-    
+    // ... rest of loading logic
   } catch (error) {
-    console.error('Directory picker failed:', error);
+    console.error('Picker failed:', error);
+    showNotification('❌ Folder picker failed', 'error');
   }
 }
 
