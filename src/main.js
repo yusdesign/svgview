@@ -267,80 +267,54 @@ async function webPickDirectory() {
 
 async function nativePickDirectory() {
   try {
+    const { Browser } = await import('@capacitor/browser');
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     
-    // Capacitor 7+ has pickDirectory() built into Filesystem
-    const result = await Filesystem.pickDirectory({
-      // Opens the native Android folder picker
-    });
-    
-    if (!result || !result.path) {
-      showNotification('📁 No directory selected', 'info');
-      return;
-    }
-    
-    // Get the actual folder path
-    const folderPath = result.path;
-    const folderName = folderPath.split('/').pop() || 'Selected Folder';
-    
-    // Read the directory
-    const dirContents = await Filesystem.readdir({
-      path: folderPath,
+    // On Android, we can use the Storage Access Framework
+    // This opens the system folder picker
+    const result = await Filesystem.readdir({
+      path: '',
       directory: Directory.ExternalStorage
     });
     
-    // Filter for SVG files
-    const svgFiles = dirContents.files.filter(f => 
-      f.type === 'file' && isSVG(f.name)
-    );
+    // Show a proper UI with folders
+    const folders = result.files.filter(f => f.type === 'directory');
     
-    if (svgFiles.length === 0) {
-      showNotification(`📁 No SVG files found in "${folderName}"`, 'info');
-      return;
-    }
-    
-    // Load the files
-    if (!svgLibrary[folderName]) {
-      svgLibrary[folderName] = [];
-    }
-    
-    let loadedCount = 0;
-    for (const file of svgFiles) {
-      const exists = svgLibrary[folderName].some(s => s.name === file.name);
-      if (exists) continue;
-      
-      try {
-        const content = await Filesystem.readFile({
-          path: `${folderPath}/${file.name}`,
-          directory: Directory.ExternalStorage,
-          encoding: 'utf8'
-        });
-        
-        if (content.data && content.data.includes('<svg')) {
-          svgLibrary[folderName].push({
-            name: file.name,
-            content: content.data,
-            size: file.size || 0,
-            type: 'svg'
-          });
-          loadedCount++;
-        }
-      } catch (error) {
-        console.error('Error loading SVG:', file.name, error);
-      }
-    }
-    
-    saveLibrary();
-    rebuildFlatList();
-    refreshGallery();
-    updateUI();
-    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
+    // Render folders in a list view
+    showFolderPickerUI(folders);
     
   } catch (error) {
     console.error('Directory picker failed:', error);
-    // Fallback to file picker
-    await nativePickFiles();
   }
+}
+
+function showFolderPickerUI(folders) {
+  // Create a modal/overlay with folder list
+  const overlay = document.createElement('div');
+  overlay.className = 'folder-picker-overlay';
+  overlay.innerHTML = `
+    <div class="folder-picker-modal">
+      <h3>📁 Select Folder</h3>
+      <div class="folder-list">
+        ${folders.map(f => `
+          <div class="folder-item" data-path="${f.name}">
+            📂 ${f.name}
+          </div>
+        `).join('')}
+      </div>
+      <button id="cancelFolderPicker">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  
+  // Add click handlers
+  overlay.querySelectorAll('.folder-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const path = item.dataset.path;
+      await loadFolderContents(path);
+      overlay.remove();
+    });
+  });
 }
 
 // ===== GALLERY =====
