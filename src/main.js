@@ -305,68 +305,82 @@ async function nativePickDirectory() {
   }
 }
 
-async function browseFolders(path, directory) {
-  const { Filesystem } = await import('@capacitor/filesystem');
-  
+async function browseFolders(path = '') {
   try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    
+    // Use ExternalStorage as the base (this is /storage/emulated/0/)
     const result = await Filesystem.readdir({
       path: path,
-      directory: directory
+      directory: Directory.ExternalStorage
     });
     
     const folders = result.files.filter(f => f.type === 'directory');
-    const svgs = result.files.filter(f => f.type === 'file' && isSVG(f.name));
+    const svgFiles = result.files.filter(f => f.type === 'file' && isSVG(f.name));
     
-    // Build a list for the user
-    let message = `📁 ${path || 'Storage Root'}\n`;
+    // Build the UI
+    let message = `📁 ${path || 'Internal Storage'}\n`;
     message += `─'.'─'─'─'─'─'─'─'─'─'\n`;
     message += `📂 ${folders.length} folders\n`;
-    message += `📄 ${svgs.length} SVGs\n`;
+    message += `📄 ${svgFiles.length} SVGs\n`;
     message += `─'.'─'─'─'─'─'─'─'─'─'\n\n`;
-    message += `📂 Enter folder name to open\n`;
+    
+    // List folders
+    folders.forEach((f, i) => {
+      message += `  ${i+1}. 📁 ${f.name}\n`;
+    });
+    
+    message += `\n📂 Enter number or folder name to open\n`;
     if (path) message += `🔙 Type ".." to go back\n`;
-    message += `📂 Type "load" to load SVGs\n`;
+    message += `📂 Type "load" to load SVGs from here\n`;
     message += `❌ Type "cancel" to exit\n`;
     
     const choice = prompt(message, '');
     if (!choice || choice === 'cancel') return;
     
     if (choice === 'load') {
-      // Load SVGs from current folder
-      await loadFolderContents(path, directory);
+      await loadFolderContents(path);
       return;
     }
     
     if (choice === '..' && path) {
       const parent = path.split('/').slice(0, -1).join('/');
-      await browseFolders(parent, directory);
+      await browseFolders(parent);
       return;
     }
     
-    // Check if choice is a folder
+    // Handle number selection
+    const num = parseInt(choice);
+    if (!isNaN(num) && num >= 1 && num <= folders.length) {
+      const target = folders[num - 1];
+      const newPath = path ? `${path}/${target.name}` : target.name;
+      await browseFolders(newPath);
+      return;
+    }
+    
+    // Handle folder name
     const target = folders.find(f => f.name === choice);
     if (target) {
       const newPath = path ? `${path}/${choice}` : choice;
-      await browseFolders(newPath, directory);
+      await browseFolders(newPath);
       return;
     }
     
-    // Invalid choice, try again
-    await browseFolders(path, directory);
+    await browseFolders(path);
     
   } catch (error) {
     console.error('Browse error:', error);
-    showNotification('❌ Error browsing', 'error');
+    showNotification('❌ Error browsing directory', 'error');
   }
 }
 
-async function loadFolderContents(path, directory) {
+async function loadFolderContents(path = '') {
   try {
-    const { Filesystem } = await import('@capacitor/filesystem');
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
     
     const result = await Filesystem.readdir({
       path: path,
-      directory: directory
+      directory: Directory.ExternalStorage
     });
     
     const svgFiles = result.files.filter(f => f.type === 'file' && isSVG(f.name));
@@ -390,7 +404,7 @@ async function loadFolderContents(path, directory) {
         const filePath = path ? `${path}/${file.name}` : file.name;
         const content = await Filesystem.readFile({
           path: filePath,
-          directory: directory,
+          directory: Directory.ExternalStorage,
           encoding: 'utf8'
         });
         
@@ -399,7 +413,8 @@ async function loadFolderContents(path, directory) {
             name: file.name,
             content: content.data,
             size: file.size || 0,
-            type: 'svg'
+            type: 'svg',
+            fullPath: filePath
           });
           loadedCount++;
         }
