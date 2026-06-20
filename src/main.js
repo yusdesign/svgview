@@ -5,9 +5,8 @@ import heroImg from './assets/hero.png';
 import { setupCounter } from './counter.js';
 
 // ===== APP STATE =====
-let svgLibrary = {}; // { folderPath: [svgData, ...] }
-let currentFolder = null;
-let allSvgs = []; // Flat array for gallery display
+let svgLibrary = {};
+let allSvgs = [];
 
 // ===== UTILITIES =====
 const isNative = () => window?.Capacitor?.isNativePlatform?.() || false;
@@ -31,10 +30,7 @@ const getFolderName = (path) => {
 // ===== STORAGE =====
 function saveLibrary() {
   try {
-    const data = {
-      library: svgLibrary,
-      timestamp: Date.now()
-    };
+    const data = { library: svgLibrary, timestamp: Date.now() };
     localStorage.setItem('svgview_library', JSON.stringify(data));
   } catch (e) {
     console.warn('Could not save library:', e);
@@ -69,6 +65,18 @@ function rebuildFlatList() {
   }
 }
 
+// ===== GENERATE PLACEHOLDER SVG =====
+function generatePlaceholderSVG(name, color = '#646cff') {
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+      <rect width="100" height="100" rx="12" fill="${color}" opacity="0.1"/>
+      <rect x="20" y="20" width="60" height="60" rx="8" fill="${color}" opacity="0.2"/>
+      <text x="50" y="55" font-family="Arial" font-size="14" text-anchor="middle" fill="${color}" opacity="0.6">SVG</text>
+      <text x="50" y="75" font-family="Arial" font-size="8" text-anchor="middle" fill="${color}" opacity="0.4">${name.substring(0, 10)}</text>
+    </svg>
+  `;
+}
+
 // ===== RENDER FUNCTIONS =====
 function renderSVG(svgData) {
   const card = document.createElement('div');
@@ -76,25 +84,38 @@ function renderSVG(svgData) {
 
   const preview = document.createElement('div');
   preview.className = 'svg-preview';
-  preview.innerHTML = svgData.content;
+  
+  // Use placeholder if content is missing or empty
+  if (svgData.content && svgData.content.includes('<svg')) {
+    preview.innerHTML = svgData.content;
+  } else {
+    preview.innerHTML = generatePlaceholderSVG(svgData.name || 'SVG', '#646cff');
+  }
 
   const info = document.createElement('div');
   info.className = 'svg-info';
   
   const filename = document.createElement('div');
   filename.className = 'filename';
-  filename.textContent = svgData.name;
+  filename.textContent = svgData.name || 'Unnamed';
   
   const filesize = document.createElement('div');
   filesize.className = 'filesize';
-  filesize.textContent = `${formatSize(svgData.size)} • ${svgData.folderName || 'Unknown folder'}`;
+  filesize.textContent = svgData.folderName ? `📁 ${svgData.folderName}` : '📁 Unknown';
 
   info.appendChild(filename);
   info.appendChild(filesize);
   card.appendChild(preview);
   card.appendChild(info);
 
-  card.addEventListener('click', () => openFullscreen(svgData));
+  card.addEventListener('click', () => {
+    if (svgData.content && svgData.content.includes('<svg')) {
+      openFullscreen(svgData);
+    } else {
+      showNotification('📄 This is a placeholder SVG', 'info');
+    }
+  });
+  
   return card;
 }
 
@@ -134,7 +155,7 @@ function openFullscreen(svgData) {
   const modalFilename = modal.querySelector('.modal-filename');
   const modalFolder = modal.querySelector('.modal-folder');
   
-  modalBody.innerHTML = svgData.content;
+  modalBody.innerHTML = svgData.content || generatePlaceholderSVG(svgData.name);
   modalFilename.textContent = svgData.name;
   modalFolder.textContent = `📁 ${svgData.folderName || 'Unknown'}`;
   modal.classList.add('active');
@@ -156,18 +177,14 @@ async function pickDirectory() {
 
 async function webPickDirectory() {
   try {
-    // Use webkitdirectory for folder selection with browse UI
     const input = document.createElement('input');
     input.type = 'file';
     input.webkitdirectory = true;
     input.multiple = true;
-    input.directory = true; // For older browsers
-    
-    // Add accept filter for SVG
+    input.directory = true;
     input.accept = '.svg,image/svg+xml';
     
-    // Show nice prompt
-    const folderName = prompt('📁 Enter a name for this folder collection:', new Date().toLocaleDateString());
+    const folderName = prompt('📁 Enter a name for this folder collection:', 'My SVGs');
     if (!folderName) return;
 
     const files = await new Promise((resolve) => {
@@ -180,13 +197,11 @@ async function webPickDirectory() {
       return;
     }
 
-    // Process files from the selected folder
     const folderPath = folderName;
     
-    // Check if folder already exists
     if (svgLibrary[folderPath] && svgLibrary[folderPath].length > 0) {
       const confirm = window.confirm(
-        `📁 "${folderName}" already has ${svgLibrary[folderPath].length} SVGs.\n\nDo you want to add new files from this folder?`
+        `📁 "${folderName}" already has ${svgLibrary[folderPath].length} SVGs.\n\nAdd new files?`
       );
       if (!confirm) return;
     }
@@ -205,7 +220,18 @@ async function webPickDirectory() {
 
       try {
         const content = await file.text();
-        if (!content.includes('<svg') && !content.includes('<?xml')) continue;
+        if (!content.includes('<svg') && !content.includes('<?xml')) {
+          // Still add as placeholder if invalid SVG
+          svgLibrary[folderPath].push({
+            name: file.name,
+            content: generatePlaceholderSVG(file.name, '#ef4444'),
+            size: file.size,
+            type: 'svg',
+            isPlaceholder: true
+          });
+          loadedCount++;
+          continue;
+        }
 
         svgLibrary[folderPath].push({
           name: file.name,
@@ -216,6 +242,15 @@ async function webPickDirectory() {
         loadedCount++;
       } catch (error) {
         console.error('Error reading file:', file.name, error);
+        // Add as placeholder on error
+        svgLibrary[folderPath].push({
+          name: file.name,
+          content: generatePlaceholderSVG(file.name, '#ef4444'),
+          size: file.size || 0,
+          type: 'svg',
+          isPlaceholder: true
+        });
+        loadedCount++;
       }
     }
 
@@ -230,11 +265,11 @@ async function webPickDirectory() {
   }
 }
 
-async function nativePickFiles() {
+async function nativePickDirectory() {
   try {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     
-    // Use the native file picker for multiple files
+    // Use Capacitor's native file picker
     const result = await Filesystem.pickFiles({
       multiple: true,
       extensions: ['svg']
@@ -245,8 +280,7 @@ async function nativePickFiles() {
       return;
     }
     
-    // Ask for folder name
-    const folderName = prompt('📁 Enter folder name for these SVGs:', 'My SVGs');
+    const folderName = prompt('📁 Name this collection:', 'My SVGs');
     if (!folderName) return;
     
     if (!svgLibrary[folderName]) {
@@ -258,19 +292,42 @@ async function nativePickFiles() {
       const exists = svgLibrary[folderName].some(s => s.name === file.name);
       if (exists) continue;
       
-      const content = await Filesystem.readFile({
-        path: file.path,
-        directory: Directory.ExternalStorage,
-        encoding: 'utf8'
-      });
-      
-      svgLibrary[folderName].push({
-        name: file.name,
-        content: content.data,
-        size: file.size || 0,
-        type: 'svg'
-      });
-      loadedCount++;
+      try {
+        const content = await Filesystem.readFile({
+          path: file.path,
+          directory: Directory.ExternalStorage,
+          encoding: 'utf8'
+        });
+        
+        if (content.data && content.data.includes('<svg')) {
+          svgLibrary[folderName].push({
+            name: file.name,
+            content: content.data,
+            size: file.size || 0,
+            type: 'svg'
+          });
+        } else {
+          // Add as placeholder if not valid SVG
+          svgLibrary[folderName].push({
+            name: file.name,
+            content: generatePlaceholderSVG(file.name, '#ef4444'),
+            size: file.size || 0,
+            type: 'svg',
+            isPlaceholder: true
+          });
+        }
+        loadedCount++;
+      } catch (error) {
+        console.error('Error loading SVG:', file.name, error);
+        svgLibrary[folderName].push({
+          name: file.name,
+          content: generatePlaceholderSVG(file.name, '#ef4444'),
+          size: file.size || 0,
+          type: 'svg',
+          isPlaceholder: true
+        });
+        loadedCount++;
+      }
     }
     
     saveLibrary();
@@ -280,186 +337,130 @@ async function nativePickFiles() {
     showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
     
   } catch (error) {
-    console.error('Native file picker failed:', error);
+    console.error('Native picker failed:', error);
+    showNotification('📁 Using web picker instead', 'info');
     await webPickDirectory();
   }
 }
 
-// Manual directory browser (fallback)
-async function browseDirectoriesManually() {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+// ===== GALLERY =====
+function refreshGallery() {
+  const existingGallery = document.querySelector('#svg-gallery');
+  const container = document.querySelector('#app');
   
-  let currentPath = '';
-  let currentDirectory = Directory.ExternalStorage || Directory.Documents;
-  
-  // Test which directory works
-  try {
-    await Filesystem.readdir({ path: '', directory: Directory.ExternalStorage });
-    currentDirectory = Directory.ExternalStorage;
-  } catch {
-    currentDirectory = Directory.Documents;
-  }
-  
-  async function browse(path = '') {
-    try {
-      const result = await Filesystem.readdir({
-        path: path,
-        directory: currentDirectory
-      });
-      
-      const folders = result.files.filter(f => f.type === 'directory');
-      const svgFiles = result.files.filter(f => f.type === 'file' && isSVG(f.name));
-      
-      let message = `📁 ${path || 'Storage Root'}\n`;
-      message += `─'.'─'─'─'─'─'─'─'─'─'\n`;
-      message += `📂 ${folders.length} folders\n`;
-      message += `📄 ${svgFiles.length} SVGs\n`;
-      message += `─'.'─'─'─'─'─'─'─'─'─'\n\n`;
-      message += `📂 Enter folder name to open\n`;
-      if (path) message += `🔙 Type ".." to go back\n`;
-      message += `📂 Type "load" to load SVGs from here\n`;
-      message += `❌ Type "cancel" to exit\n`;
-      
-      const choice = prompt(message, '');
-      if (!choice || choice === 'cancel') return null;
-      
-      if (choice === 'load') {
-        return { path, svgFiles };
-      }
-      
-      if (choice === '..' && path) {
-        const parent = path.split('/').slice(0, -1).join('/');
-        return await browse(parent);
-      }
-      
-      // Check if choice is a folder
-      const targetFolder = folders.find(f => f.name === choice);
-      if (targetFolder) {
-        const newPath = path ? `${path}/${choice}` : choice;
-        return await browse(newPath);
-      }
-      
-      return await browse(path);
-    } catch (error) {
-      console.error('Browse error:', error);
-      showNotification('❌ Error browsing directory', 'error');
-      return null;
+  if (!existingGallery) {
+    const gallerySection = document.createElement('section');
+    gallerySection.id = 'svg-gallery';
+    gallerySection.innerHTML = `
+      <div class="gallery-header">
+        <div class="gallery-header-left">
+          <h2>🌇 SVG Library</h2>
+          <span id="folderCount" class="folder-count">0 folders</span>
+        </div>
+        <div class="gallery-actions">
+          <button id="pickDirectoryBtn" class="pick-files-btn">📁 Pick Directory</button>
+          <span id="fileCount" class="file-count">0 SVGs</span>
+          <button id="settingsBtn" class="settings-btn">⚙️</button>
+        </div>
+      </div>
+      <div id="gallery" class="gallery-grid"></div>
+    `;
+    
+    const nextSteps = document.querySelector('#next-steps');
+    if (nextSteps) {
+      nextSteps.after(gallerySection);
+    } else {
+      container.appendChild(gallerySection);
+    }
+    
+    const pickBtn = document.querySelector('#pickDirectoryBtn');
+    const settingsBtn = document.querySelector('#settingsBtn');
+    
+    if (pickBtn) {
+      pickBtn.addEventListener('click', pickDirectory);
+    }
+    
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', showSettings);
     }
   }
   
-  const result = await browse('');
-  if (!result) return;
+  const galleryContainer = document.querySelector('#gallery');
+  if (!galleryContainer) return;
   
-  // Load SVGs from the selected folder
-  const { path, svgFiles } = result;
-  const folderName = path || 'Root';
+  galleryContainer.innerHTML = '';
   
-  if (svgFiles.length === 0) {
-    showNotification(`📁 No SVG files in "${folderName}"`, 'info');
+  // Always show something - even if empty, show placeholders
+  if (allSvgs.length === 0) {
+    // Show sample placeholder SVGs so the gallery isn't empty
+    const sampleData = [
+      { name: 'sample-1.svg', content: generatePlaceholderSVG('Sample 1', '#646cff'), folderName: '📁 Welcome' },
+      { name: 'sample-2.svg', content: generatePlaceholderSVG('Sample 2', '#535bf2'), folderName: '📁 Welcome' },
+      { name: 'sample-3.svg', content: generatePlaceholderSVG('Sample 3', '#22c55e'), folderName: '📁 Welcome' },
+      { name: 'sample-4.svg', content: generatePlaceholderSVG('Sample 4', '#ef4444'), folderName: '📁 Welcome' }
+    ];
+    
+    const folderSection = document.createElement('div');
+    folderSection.className = 'folder-section';
+    folderSection.innerHTML = `<div class="folder-label">📁 Welcome (4 placeholders)</div>`;
+    
+    sampleData.forEach((svgData) => {
+      const card = renderSVG(svgData);
+      folderSection.appendChild(card);
+    });
+    
+    galleryContainer.appendChild(folderSection);
+    
+    // Add a message
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'empty-gallery';
+    messageDiv.innerHTML = `
+      <div class="empty-icon">📁</div>
+      <h3>Load your SVG files</h3>
+      <p>Click "Pick Directory" to select a folder with SVG files</p>
+      <div class="demo-hint">
+        <p>💡 Your library is saved locally</p>
+        <p>📂 Each folder becomes a separate collection</p>
+        <p>🎨 Placeholder SVGs shown until you load real ones</p>
+      </div>
+    `;
+    galleryContainer.appendChild(messageDiv);
     return;
   }
-  
-  if (!svgLibrary[folderName]) {
-    svgLibrary[folderName] = [];
-  }
-  
-  let loadedCount = 0;
-  for (const file of svgFiles) {
-    const exists = svgLibrary[folderName].some(s => s.name === file.name);
-    if (exists) continue;
+
+  // Display SVGs grouped by folder
+  for (const [folder, svgs] of Object.entries(svgLibrary)) {
+    if (svgs.length === 0) continue;
     
-    const filePath = path ? `${path}/${file.name}` : file.name;
-    const content = await Filesystem.readFile({
-      path: filePath,
-      directory: currentDirectory,
-      encoding: 'utf8'
+    const folderSection = document.createElement('div');
+    folderSection.className = 'folder-section';
+    folderSection.innerHTML = `<div class="folder-label">📁 ${getFolderName(folder)} (${svgs.length})</div>`;
+    
+    svgs.forEach((svgData) => {
+      const card = renderSVG({ ...svgData, folderName: getFolderName(folder) });
+      folderSection.appendChild(card);
     });
     
-    svgLibrary[folderName].push({
-      name: file.name,
-      content: content.data,
-      size: file.size || 0,
-      type: 'svg'
-    });
-    loadedCount++;
-  }
-  
-  saveLibrary();
-  rebuildFlatList();
-  refreshGallery();
-  updateUI();
-  showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
-}
-
-async function webPickFiles() {
-  try {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.svg,image/svg+xml';
-    input.multiple = true;
-    input.webkitdirectory = true; // This enables folder selection!
-    
-    const files = await new Promise((resolve) => {
-      input.onchange = (e) => resolve(e.target.files);
-      input.click();
-    });
-
-    if (!files || files.length === 0) return;
-
-    const folderName = files[0].webkitRelativePath.split('/')[0] || 'Unknown Folder';
-    const folderPath = folderName;
-    
-    // Check if folder already exists
-    if (svgLibrary[folderPath]) {
-      const confirm = window.confirm(
-        `📁 "${folderName}" already has ${svgLibrary[folderPath].length} SVGs.\n\nDo you want to add new files from this folder?`
-      );
-      if (!confirm) return;
-    }
-
-    // Initialize folder in library
-    if (!svgLibrary[folderPath]) {
-      svgLibrary[folderPath] = [];
-    }
-
-    let loadedCount = 0;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!isSVG(file.name)) continue;
-
-      // Check if file already exists in this folder
-      const exists = svgLibrary[folderPath].some(s => s.name === file.name);
-      if (exists) continue;
-
-      try {
-        const content = await file.text();
-        if (!content.includes('<svg') && !content.includes('<?xml')) continue;
-
-        svgLibrary[folderPath].push({
-          name: file.name,
-          content: content,
-          size: file.size,
-          type: 'svg'
-        });
-        loadedCount++;
-      } catch (error) {
-        console.error('Error reading file:', file.name, error);
-      }
-    }
-
-    saveLibrary();
-    rebuildFlatList();
-    refreshGallery();
-    updateUI();
-    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
-  } catch (error) {
-    console.error('Web picker failed:', error);
-    showNotification('❌ Failed to pick files', 'error');
+    galleryContainer.appendChild(folderSection);
   }
 }
 
+function updateUI() {
+  const fileCount = document.querySelector('#fileCount');
+  const folderCount = document.querySelector('#folderCount');
+  
+  if (fileCount) {
+    fileCount.textContent = `${allSvgs.length} SVGs`;
+  }
+  
+  if (folderCount) {
+    const folderCountValue = Object.keys(svgLibrary).filter(k => svgLibrary[k].length > 0).length;
+    folderCount.textContent = `${folderCountValue} folders`;
+  }
+}
+
+// ===== SETTINGS =====
 function showSettings() {
-  // Check if settings modal exists
   let settingsModal = document.querySelector('#settingsModal');
   if (!settingsModal) {
     settingsModal = document.createElement('div');
@@ -509,19 +510,16 @@ function showSettings() {
     `;
     document.body.appendChild(settingsModal);
     
-    // Close button
     settingsModal.querySelector('#settingsClose').addEventListener('click', () => {
       settingsModal.classList.remove('active');
     });
     
-    // Click outside to close
     settingsModal.addEventListener('click', (e) => {
       if (e.target === settingsModal) {
         settingsModal.classList.remove('active');
       }
     });
     
-    // Clear all data
     settingsModal.querySelector('#clearAllDataBtn').addEventListener('click', () => {
       if (confirm('⚠️ Delete all SVGs from library?')) {
         svgLibrary = {};
@@ -536,111 +534,6 @@ function showSettings() {
   }
   
   settingsModal.classList.add('active');
-}
-
-// ===== GALLERY =====
-function refreshGallery() {
-  const existingGallery = document.querySelector('#svg-gallery');
-  const container = document.querySelector('#app');
-  
-  if (!existingGallery) {
-    const gallerySection = document.createElement('section');
-    gallerySection.id = 'svg-gallery';
-    gallerySection.innerHTML = `
-      <div class="gallery-header">
-        <div class="gallery-header-left">
-          <h2>🌇 SVG Library</h2>
-          <span id="folderCount" class="folder-count">0 folders</span>
-        </div>
-        <div class="gallery-actions">
-          <span id="fileCount" class="file-count">0 SVGs</span>
-        </div>
-      </div>
-      <div id="gallery" class="gallery-grid"></div>
-    `;
-    
-    const settingsBtn = document.querySelector('#settingsBtn');
-    if (settingsBtn) {
-      settingsBtn.addEventListener('click', showSettings);
-    }
-        
-    const nextSteps = document.querySelector('#next-steps');
-    if (nextSteps) {
-      nextSteps.after(gallerySection);
-    } else {
-      container.appendChild(gallerySection);
-    }
-    
-    const pickBtn = document.querySelector('#pickDirectoryBtn');
-    const clearBtn = document.querySelector('#clearGalleryBtn');
-    
-    if (pickBtn) {
-      pickBtn.addEventListener('click', pickDirectory);
-    }
-    
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        if (confirm('🗑️ Clear all SVG files from library?')) {
-          svgLibrary = {};
-          allSvgs = [];
-          saveLibrary();
-          refreshGallery();
-          updateUI();
-          showNotification('🗑️ Library cleared', 'info');
-        }
-      });
-    }
-  }
-  
-  const galleryContainer = document.querySelector('#gallery');
-  if (!galleryContainer) return;
-  
-  galleryContainer.innerHTML = '';
-  
-  if (allSvgs.length === 0) {
-    galleryContainer.innerHTML = `
-      <div class="empty-gallery">
-        <div class="empty-icon">📁</div>
-        <h3>No SVG files loaded</h3>
-        <p>Click "Pick Directory" to select a folder with SVG files</p>
-        <div class="demo-hint">
-          <p>💡 Your library is saved locally</p>
-          <p>📂 Each folder becomes a separate collection</p>
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  // Display SVGs grouped by folder
-  for (const [folder, svgs] of Object.entries(svgLibrary)) {
-    if (svgs.length === 0) continue;
-    
-    const folderSection = document.createElement('div');
-    folderSection.className = 'folder-section';
-    folderSection.innerHTML = `<div class="folder-label">📁 ${getFolderName(folder)} (${svgs.length})</div>`;
-    
-    svgs.forEach((svgData) => {
-      const card = renderSVG({ ...svgData, folderName: getFolderName(folder) });
-      folderSection.appendChild(card);
-    });
-    
-    galleryContainer.appendChild(folderSection);
-  }
-}
-
-function updateUI() {
-  const fileCount = document.querySelector('#fileCount');
-  const folderCount = document.querySelector('#folderCount');
-  
-  if (fileCount) {
-    fileCount.textContent = `${allSvgs.length} SVGs`;
-  }
-  
-  if (folderCount) {
-    const folderCountValue = Object.keys(svgLibrary).filter(k => svgLibrary[k].length > 0).length;
-    folderCount.textContent = `${folderCountValue} folders`;
-  }
 }
 
 // ===== NOTIFICATIONS =====
@@ -658,7 +551,6 @@ function showNotification(message, type = 'info') {
 
 // ===== SETUP =====
 function setupApp() {
-  // Set up HTML
   document.querySelector('#app').innerHTML = `
     <section id="center">
       <div class="hero">
@@ -670,58 +562,13 @@ function setupApp() {
         <h1>🌇 svgview</h1>
         <p>Your local SVG library</p>
       </div>
-      <button id="counter" type="button" class="counter"></button>
     </section>
-    <div class="ticks"></div>
     <div class="ticks"></div>
     <section id="spacer"></section>
   `;
 
-  setupCounter(document.querySelector('#counter'));
-
-  // In setupApp(), add a custom folder picker UI
-  function setupFolderPickerUI() {
-    const pickBtn = document.querySelector('#pickDirectoryBtn');
-    if (pickBtn) {
-      // Add a dropdown for folder management
-      const folderManager = document.createElement('div');
-      folderManager.className = 'folder-manager';
-      folderManager.innerHTML = `
-        <button class="folder-manager-btn" title="Manage Folders">📁</button>
-        <div class="folder-dropdown hidden">
-          <div class="folder-list"></div>
-          <button class="create-folder-btn">➕ New Folder</button>
-        </div>
-      `;
-      pickBtn.parentNode.insertBefore(folderManager, pickBtn.nextSibling);
-    }
-  }
-
-  // Quick load button
-  const quickLoadBtn = document.querySelector('#quickLoadBtn');
-  if (quickLoadBtn) {
-    quickLoadBtn.addEventListener('click', pickDirectory);
-  }
-
   // Drag and drop for web
   setupDragDrop();
-
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    // Only for web platforms (not Android/iOS)
-    if (!isNative()) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
-        e.preventDefault();
-        pickDirectory();
-      }
-    }
-    if (e.key === 'Escape') {
-      const modal = document.querySelector('.modal');
-      if (modal && modal.classList.contains('active')) {
-        modal.classList.remove('active');
-      }
-    }
-  });
 
   // Load saved library
   loadLibrary();
@@ -730,7 +577,6 @@ function setupApp() {
 
   console.log('🌇 svgview initialized!');
   console.log(`📚 Loaded ${allSvgs.length} SVGs from ${Object.keys(svgLibrary).length} folders`);
-  console.log('💡 Press ⌘O / Ctrl+O to pick a directory');
 }
 
 // ===== DRAG & DROP =====
@@ -760,107 +606,60 @@ function setupDragDrop() {
     dragCounter = 0;
     document.body.classList.remove('drag-over');
 
-    const items = e.dataTransfer.items;
-    if (!items) return;
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
 
-    // Check if it's a folder
-    let isFolder = false;
-    for (const item of items) {
-      if (item.webkitGetAsEntry) {
-        const entry = item.webkitGetAsEntry();
-        if (entry && entry.isDirectory) {
-          isFolder = true;
-          break;
-        }
-      }
+    const folderName = prompt('📁 Enter folder name for dropped SVGs:', 'Dropped SVGs');
+    if (!folderName) return;
+
+    if (!svgLibrary[folderName]) {
+      svgLibrary[folderName] = [];
     }
 
-    if (isFolder) {
-      // Handle folder drop
-      const folderName = prompt('📁 Enter a name for this folder:', 'My SVGs');
-      if (!folderName) return;
-
-      const files = e.dataTransfer.files;
-      const folderPath = folderName;
-
-      if (!svgLibrary[folderPath]) {
-        svgLibrary[folderPath] = [];
-      }
-
-      let loadedCount = 0;
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!isSVG(file.name)) continue;
-        
-        const exists = svgLibrary[folderPath].some(s => s.name === file.name);
-        if (exists) continue;
-
-        try {
-          const content = await file.text();
-          if (!content.includes('<svg') && !content.includes('<?xml')) continue;
-
-          svgLibrary[folderPath].push({
-            name: file.name,
-            content: content,
-            size: file.size,
-            type: 'svg'
-          });
-          loadedCount++;
-        } catch (error) {
-          console.error('Error reading file:', file.name, error);
-        }
-      }
-
-      saveLibrary();
-      rebuildFlatList();
-      refreshGallery();
-      updateUI();
-      showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
-    } else {
-      // Single file drop - prompt for folder
-      const files = e.dataTransfer.files;
-      const svgFiles = Array.from(files).filter(f => isSVG(f.name));
+    let loadedCount = 0;
+    for (const file of files) {
+      if (!isSVG(file.name)) continue;
       
-      if (svgFiles.length === 0) {
-        showNotification('📁 No SVG files found', 'info');
-        return;
-      }
+      const exists = svgLibrary[folderName].some(s => s.name === file.name);
+      if (exists) continue;
 
-      const folderName = prompt(`📁 Enter folder name for ${svgFiles.length} SVGs:`, 'Dropped SVGs');
-      if (!folderName) return;
-
-      const folderPath = folderName;
-      if (!svgLibrary[folderPath]) {
-        svgLibrary[folderPath] = [];
-      }
-
-      let loadedCount = 0;
-      for (const file of svgFiles) {
-        const exists = svgLibrary[folderPath].some(s => s.name === file.name);
-        if (exists) continue;
-
-        try {
-          const content = await file.text();
-          if (!content.includes('<svg') && !content.includes('<?xml')) continue;
-
-          svgLibrary[folderPath].push({
+      try {
+        const content = await file.text();
+        if (content.includes('<svg') || content.includes('<?xml')) {
+          svgLibrary[folderName].push({
             name: file.name,
             content: content,
             size: file.size,
             type: 'svg'
           });
-          loadedCount++;
-        } catch (error) {
-          console.error('Error reading file:', file.name, error);
+        } else {
+          svgLibrary[folderName].push({
+            name: file.name,
+            content: generatePlaceholderSVG(file.name, '#ef4444'),
+            size: file.size,
+            type: 'svg',
+            isPlaceholder: true
+          });
         }
+        loadedCount++;
+      } catch (error) {
+        console.error('Error reading file:', file.name, error);
+        svgLibrary[folderName].push({
+          name: file.name,
+          content: generatePlaceholderSVG(file.name, '#ef4444'),
+          size: file.size || 0,
+          type: 'svg',
+          isPlaceholder: true
+        });
+        loadedCount++;
       }
-
-      saveLibrary();
-      rebuildFlatList();
-      refreshGallery();
-      updateUI();
-      showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
     }
+
+    saveLibrary();
+    rebuildFlatList();
+    refreshGallery();
+    updateUI();
+    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
   });
 }
 
