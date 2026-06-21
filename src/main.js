@@ -128,7 +128,7 @@ function openFullscreen(svgData) {
       <div class="modal-content">
         <button class="modal-close" aria-label="Close">
           <svg class="close-icon" viewBox="0 0 24 24" width="20" height="20">
-            <use href="/icons.svg#close-icon"/>
+            <use href="/svgview/icons.svg#close-icon"/>
           </svg>
         </button>
         <div id="modal-body"></div>
@@ -535,7 +535,7 @@ function showFolderPickerUI(folders, currentPath = '', svgCount = 0) {
         <h3>📁 ${currentPath || 'Internal Storage'}</h3>
         <button class="folder-picker-close" aria-label="Close">
           <svg class="close-icon" viewBox="0 0 24 24" width="20" height="20">
-            <use href="/icons.svg#close-icon"/>
+            <use href="/svgview/icons.svg#close-icon"/>
           </svg>
         </button>
         <div class="folder-picker-path">
@@ -736,7 +736,7 @@ function showSettings() {
       <div class="modal-content settings-content">
         <button class="modal-close" id="settingsClose" aria-label="Close">
           <svg class="close-icon" viewBox="0 0 24 24" width="20" height="20">
-            <use href="/icons.svg#close-icon"/>
+            <use href="/svgview//icons.svg#close-icon"/>
           </svg>
         </button>
         <h2>⚙️ Settings</h2>        
@@ -763,9 +763,8 @@ function showSettings() {
           <h3>Connect with us</h3>
           <p>Join the Vite community</p>
           <ul>
-            <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-            <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-            <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
+            <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/svgview/icons.svg#github-icon"></use></svg>GitHub</a></li>
+            <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/svgview/icons.svg#discord-icon"></use></svg>Discord</a></li>
           </ul>
         </div>
         

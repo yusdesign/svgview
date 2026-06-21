@@ -302,6 +302,15 @@ button:focus-visible {
   margin: 0;
   font-size: 1.3rem;
   font-weight: 600;
+  /* Fallback for browsers that don't support background-clip: text */
+  color: #646cff;
+}
+
+/* For browsers that support background-clip: text, the color will be overridden */
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .gallery-header h2 {
+    color: transparent;
+  }
 }
 
 @keyframes rotateGradient {
