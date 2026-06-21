@@ -14,6 +14,11 @@
     <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M12.5 6.667a4.167 4.167 0 1 0-8.334 0 4.167 4.167 0 0 0 8.334 0"/>
     <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M2.5 16.667a5.833 5.833 0 0 1 8.75-5.053m3.837.474.513 1.035c.07.144.257.282.414.309l.93.155c.596.1.736.536.307.965l-.723.73a.64.64 0 0 0-.152.531l.207.903c.164.715-.213.991-.84.618l-.872-.52a.63.63 0 0 0-.577 0l-.872.52c-.624.373-1.003.094-.84-.618l.207-.903a.64.64 0 0 0-.152-.532l-.723-.729c-.426-.43-.289-.864.306-.964l.93-.156a.64.64 0 0 0 .412-.31l.513-1.034c.28-.562.735-.562 1.012 0"/>
   </symbol>
+  <symbol id="dropdown-icon" viewBox="0 0 24 24">
+    <path id="rect8" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:0" d="m 6,8 h 7 c 2.216,0 4,1.784 4,4 v 4 c 0,2.216 -1.784,4 -4,4 H 9 C 6.784,20 5,18.216 5,16 V 9 C 5,8.446 5.446,8 6,8 Z" />
+    <path id="path9" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:0" d="m 13.382822,12.808589 c 0,1.315996 -1.066826,2.382822 -2.382822,2.382822 -1.315996,0 -2.382822,-1.066826 -2.382822,-2.382822" />
+    <path id="rect9" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-miterlimit:0" d="M 21,11 C 21,7.1220001 17.878,4 13.999999,4 H 10" />
+  </symbol>
   <symbol id="close-icon" viewBox="0 0 24 24">
     <rect x="2.9091" y="2.9091" width="18.182" height="18.182" rx="1.0909" ry="1.0909" style="fill:none;stroke:currentColor;stroke-linejoin:round;stroke-miterlimit:0;stroke-width:2"/>
     <path d="m8 8 8 8" style="fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:0;stroke-width:2"/>
