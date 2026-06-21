@@ -1214,3 +1214,44 @@ body.drag-over::before {
     background: rgba(0, 0, 0, 0.12);
   }
 }
+/* Close icon styling */
+.modal-close .close-icon,
+.folder-picker-close .close-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  color: currentColor;
+  transition: transform 0.3s ease;
+}
+
+.modal-close:hover .close-icon,
+.folder-picker-close:hover .close-icon {
+  transform: rotate(90deg);
+}
+
+/* Ensure the close button is properly centered */
+.modal-close,
+.folder-picker-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.modal-close:hover,
+.folder-picker-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Light mode */
+@media (prefers-color-scheme: light) {
+  .modal-close:hover,
+  .folder-picker-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+}

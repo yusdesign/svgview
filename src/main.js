@@ -1,7 +1,7 @@
 import './style.css';
-import javascriptLogo from './assets/javascript.svg';
-import viteLogo from './assets/vite.svg';
-import heroImg from './assets/hero.png';
+import javascriptLogoUrl from './assets/javascript.svg?url';
+import viteLogoUrl from './assets/vite.svg?url';
+import heroImgUrl from './assets/hero.png?url';
 import { setupCounter } from './counter.js';
 
 // ===== APP STATE =====
@@ -126,7 +126,11 @@ function openFullscreen(svgData) {
     modal.className = 'modal';
     modal.innerHTML = `
       <div class="modal-content">
-        <button class="modal-close" aria-label="Close">✕</button>
+        <button class="modal-close" aria-label="Close">
+          <svg class="close-icon" viewBox="0 0 24 24" width="20" height="20">
+            <use href="/icons.svg#close-icon"/>
+          </svg>
+        </button>
         <div id="modal-body"></div>
         <div class="modal-footer">
           <span class="modal-filename">${svgData.name}</span>
@@ -477,27 +481,76 @@ function showFolderPickerUI(folders, currentPath = '', svgCount = 0) {
   const existing = document.querySelector('.folder-picker-overlay');
   if (existing) existing.remove();
   
+  // Limit folders shown at once (pagination)
+  const PAGE_SIZE = 20;
+  let currentPage = 0;
+  const totalPages = Math.ceil(folders.length / PAGE_SIZE);
+  
+  function renderPage(page) {
+    const start = page * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, folders.length);
+    const pageFolders = folders.slice(start, end);
+    
+    const listEl = overlay.querySelector('.folder-picker-list');
+    listEl.innerHTML = '';
+    
+    if (pageFolders.length === 0) {
+      listEl.innerHTML = '<div class="folder-picker-empty">📭 No folders found</div>';
+      return;
+    }
+    
+    pageFolders.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'folder-picker-item';
+      item.innerHTML = `
+        <span class="folder-icon">📁</span>
+        <span class="folder-name">${f.name}</span>
+        <span class="folder-arrow">›</span>
+      `;
+      item.addEventListener('click', async () => {
+        const newPath = currentPath ? `${currentPath}/${f.name}` : f.name;
+        await browseFoldersWithUI(newPath);
+      });
+      listEl.appendChild(item);
+    });
+    
+    // Update pagination info
+    const pageInfo = overlay.querySelector('.folder-picker-page-info');
+    if (pageInfo) {
+      pageInfo.textContent = `${start + 1}-${end} of ${folders.length}`;
+    }
+    
+    // Update buttons
+    const prevBtn = overlay.querySelector('.folder-picker-prev');
+    const nextBtn = overlay.querySelector('.folder-picker-next');
+    if (prevBtn) prevBtn.style.display = currentPage > 0 ? 'block' : 'none';
+    if (nextBtn) nextBtn.style.display = currentPage < totalPages - 1 ? 'block' : 'none';
+  }
+  
   const overlay = document.createElement('div');
   overlay.className = 'folder-picker-overlay';
   overlay.innerHTML = `
     <div class="folder-picker-modal">
       <div class="folder-picker-header">
         <h3>📁 ${currentPath || 'Internal Storage'}</h3>
-        <button class="folder-picker-close">✕</button>
-      </div>
-      <div class="folder-picker-path">
+        <button class="folder-picker-close" aria-label="Close">
+          <svg class="close-icon" viewBox="0 0 24 24" width="20" height="20">
+            <use href="/icons.svg#close-icon"/>
+          </svg>
+        </button>
+        <div class="folder-picker-path">
         <span>📂 ${currentPath || '/'}</span>
-        ${currentPath ? `<button class="folder-picker-up">🔙 Up</button>` : ''}
+        <div style="display:flex;gap:8px;align-items:center;">
+          ${currentPath ? `<button class="folder-picker-up">🔙 Up</button>` : ''}
+          <span class="folder-picker-page-info">0-0 of 0</span>
+        </div>
       </div>
-      <div class="folder-picker-list">
-        ${folders.length === 0 ? '<div class="folder-picker-empty">📭 No folders found</div>' : ''}
-        ${folders.map(f => `
-          <div class="folder-picker-item" data-path="${f.name}" data-type="${f.type}">
-            <span class="folder-icon">📁</span>
-            <span class="folder-name">${f.name}</span>
-            <span class="folder-arrow">›</span>
-          </div>
-        `).join('')}
+      <div class="folder-picker-list" style="max-height:50vh;overflow-y:auto;min-height:200px;">
+        <!-- Rendered by JS -->
+      </div>
+      <div class="folder-picker-pagination" style="display:flex;justify-content:center;gap:12px;padding:8px;border-top:1px solid rgba(255,255,255,0.08);">
+        <button class="folder-picker-prev" style="background:none;border:none;color:#646cff;cursor:pointer;padding:4px 12px;">◀ Prev</button>
+        <button class="folder-picker-next" style="background:none;border:none;color:#646cff;cursor:pointer;padding:4px 12px;">Next ▶</button>
       </div>
       <div class="folder-picker-footer">
         <button class="folder-picker-load" id="loadFromHereBtn">📂 Load SVGs (${svgCount})</button>
@@ -507,13 +560,22 @@ function showFolderPickerUI(folders, currentPath = '', svgCount = 0) {
   `;
   document.body.appendChild(overlay);
   
-  // Handle folder clicks
-  overlay.querySelectorAll('.folder-picker-item').forEach(item => {
-    item.addEventListener('click', async () => {
-      const path = item.dataset.path;
-      const newPath = currentPath ? `${currentPath}/${path}` : path;
-      await browseFoldersWithUI(newPath);
-    });
+  // Initial render
+  renderPage(0);
+  
+  // Pagination handlers
+  overlay.querySelector('.folder-picker-prev').addEventListener('click', () => {
+    if (currentPage > 0) {
+      currentPage--;
+      renderPage(currentPage);
+    }
+  });
+  
+  overlay.querySelector('.folder-picker-next').addEventListener('click', () => {
+    if (currentPage < totalPages - 1) {
+      currentPage++;
+      renderPage(currentPage);
+    }
   });
   
   // Up button
@@ -540,7 +602,6 @@ function showFolderPickerUI(folders, currentPath = '', svgCount = 0) {
     overlay.remove();
   });
   
-  // Click outside to close
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
       overlay.remove();
@@ -673,22 +734,25 @@ function showSettings() {
     settingsModal.className = 'modal settings-modal';
     settingsModal.innerHTML = `
       <div class="modal-content settings-content">
-        <button class="modal-close" id="settingsClose">✕</button>
-        <h2>⚙️ Settings</h2>
-        
+        <button class="modal-close" id="settingsClose" aria-label="Close">
+          <svg class="close-icon" viewBox="0 0 24 24" width="20" height="20">
+            <use href="/icons.svg#close-icon"/>
+          </svg>
+        </button>
+        <h2>⚙️ Settings</h2>        
         <div class="settings-section">
           <h3>Documentation</h3>
           <p>Your questions, answered</p>
           <ul>
             <li>
               <a href="https://vite.dev/" target="_blank">
-                <img class="logo" src="${viteLogo}" alt="" />
+                <img class="logo" src="${viteLogoUrl}" alt="" />
                 Explore Vite
               </a>
             </li>
             <li>
               <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-                <img class="button-icon" src="${javascriptLogo}" alt="">
+                <img class="button-icon" src="${javascriptLogoUrl}" alt="">
                 Learn more
               </a>
             </li>
