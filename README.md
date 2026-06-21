@@ -1,6 +1,6 @@
 # 🌇 svgview
 
-A beautiful SVG viewer app built with Vite and Capacitor. Load, view, and manage SVG files with ease.
+Idea: "A beautiful SVG viewer app built with Vite and Capacitor. Load, view, and manage SVG files with ease." :)
 
 ![svgview](https://img.shields.io/badge/version-0.0.0-blue)
 ![Vite](https://img.shields.io/badge/Vite-5.x-646cff)
