@@ -13,8 +13,18 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['@capacitor/core', '@capacitor/filesystem']
+        // Vite 8 requires manualChunks as a function
+        manualChunks(id) {
+          // Group vendor dependencies
+          if (id.includes('node_modules')) {
+            if (id.includes('@capacitor')) {
+              return 'capacitor';
+            }
+            if (id.includes('vite')) {
+              return 'vite';
+            }
+            return 'vendor';
+          }
         }
       }
     }

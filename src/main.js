@@ -177,51 +177,75 @@ async function pickDirectory() {
 
 async function webPickDirectory() {
   try {
+    // Create a file input with folder selection enabled
     const input = document.createElement('input');
     input.type = 'file';
-    input.webkitdirectory = true;
+    input.webkitdirectory = true;  // Enables folder selection in Chrome/Edge
     input.multiple = true;
-    input.directory = true;
+    input.directory = true;  // For broader browser support
     input.accept = '.svg,image/svg+xml';
     
-    const folderName = prompt('📁 Enter a name for this folder collection:', 'My SVGs');
-    if (!folderName) return;
+    // Ask for a folder name first
+    const folderName = prompt('📁 Enter a name for this folder collection:', new Date().toLocaleDateString());
+    if (!folderName) {
+      showNotification('📁 Cancelled', 'info');
+      return;
+    }
 
+    // Wait for user to select a folder
     const files = await new Promise((resolve) => {
       input.onchange = (e) => resolve(e.target.files);
       input.click();
     });
 
+    // Check if any files were selected
     if (!files || files.length === 0) {
       showNotification('📁 No files selected', 'info');
       return;
     }
 
+    // Use the folder name as the collection name
     const folderPath = folderName;
     
+    // Check if this folder already exists in the library
     if (svgLibrary[folderPath] && svgLibrary[folderPath].length > 0) {
-      const confirm = window.confirm(
-        `📁 "${folderName}" already has ${svgLibrary[folderPath].length} SVGs.\n\nAdd new files?`
+      const confirmAdd = window.confirm(
+        `📁 "${folderName}" already has ${svgLibrary[folderPath].length} SVGs.\n\nDo you want to add new files to this collection?`
       );
-      if (!confirm) return;
+      if (!confirmAdd) return;
     }
 
+    // Initialize the folder in the library if it doesn't exist
     if (!svgLibrary[folderPath]) {
       svgLibrary[folderPath] = [];
     }
 
     let loadedCount = 0;
+    let errorCount = 0;
+
+    // Process each file from the selected folder
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!isSVG(file.name)) continue;
+      
+      // Skip non-SVG files
+      if (!isSVG(file.name)) {
+        continue;
+      }
 
+      // Check if this file already exists in this folder
       const exists = svgLibrary[folderPath].some(s => s.name === file.name);
-      if (exists) continue;
+      if (exists) {
+        continue;
+      }
 
       try {
+        // Read the file content as text
         const content = await file.text();
+        
+        // Validate that it's actually an SVG
         if (!content.includes('<svg') && !content.includes('<?xml')) {
-          // Still add as placeholder if invalid SVG
+          console.warn('File is not a valid SVG:', file.name);
+          // Still add as placeholder if invalid
           svgLibrary[folderPath].push({
             name: file.name,
             content: generatePlaceholderSVG(file.name, '#ef4444'),
@@ -233,15 +257,20 @@ async function webPickDirectory() {
           continue;
         }
 
+        // Valid SVG - add to library
         svgLibrary[folderPath].push({
           name: file.name,
           content: content,
           size: file.size,
-          type: 'svg'
+          type: 'svg',
+          isPlaceholder: false
         });
         loadedCount++;
+        
       } catch (error) {
         console.error('Error reading file:', file.name, error);
+        errorCount++;
+        
         // Add as placeholder on error
         svgLibrary[folderPath].push({
           name: file.name,
@@ -254,14 +283,22 @@ async function webPickDirectory() {
       }
     }
 
+    // Save to localStorage and refresh the UI
     saveLibrary();
     rebuildFlatList();
     refreshGallery();
     updateUI();
-    showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"`, 'success');
+    
+    // Show success message
+    if (loadedCount > 0) {
+      showNotification(`✅ Loaded ${loadedCount} SVGs from "${folderName}"${errorCount > 0 ? ` (${errorCount} errors)` : ''}`, 'success');
+    } else {
+      showNotification('📁 No SVG files found in the selected folder', 'info');
+    }
+    
   } catch (error) {
     console.error('Web directory picker failed:', error);
-    showNotification('❌ Failed to pick directory', 'error');
+    showNotification('❌ Failed to pick directory: ' + error.message, 'error');
   }
 }
 
