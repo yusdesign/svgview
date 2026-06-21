@@ -131,7 +131,7 @@ button:focus-visible {
   z-index: 0;
 }
 
-/* JavaScript logo - positioned on the base plate with 3D transform */
+/* Hero logo perspectives - match both logos */
 #center .framework {
   position: absolute;
   z-index: 1;
@@ -140,13 +140,12 @@ button:focus-visible {
   transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg) scale(1.4);
   height: 28px;
   width: auto;
-  margin-left: -14px; /* Center adjustment */
+  margin-left: -14px;
   opacity: 0;
   animation: slideUp 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
   animation-delay: 0.3s;
 }
 
-/* Vite logo - positioned on the super plate with 3D transform */
 #center .vite {
   position: absolute;
   z-index: 0;
@@ -155,7 +154,7 @@ button:focus-visible {
   transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg) scale(0.8);
   height: 26px;
   width: auto;
-  margin-left: -13px; /* Center adjustment */
+  margin-left: -13px;
   opacity: 0;
   animation: slideDown 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
   animation-delay: 0.3s;
@@ -844,49 +843,62 @@ body.drag-over::before {
     border-color: rgba(0, 0, 0, 0.1);
   }
 }
-/* In style.css */
-.settings-btn {
-  background: transparent;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: background 0.2s;
+/* Web-specific refinements */
+@media (min-width: 768px) {
+  /* Smaller roundings for desktop */
+  .svg-card {
+    border-radius: 8px; /* Was 16px */
+  }
+  
+  .gallery-header {
+    border-radius: 8px; /* Was 12px */
+  }
+  
+  .modal-content {
+    border-radius: 8px; /* Was 16px */
+  }
+  
+  /* Minimize spacing */
+  #app {
+    padding: 1rem;
+  }
+  
+  .gallery-grid {
+    gap: 12px; /* Was 20px */
+  }
+  
+  .svg-info {
+    padding: 8px 12px; /* Was 12px 16px */
+  }
 }
 
-.settings-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.settings-modal .settings-content {
+/* Settings modal fix */
+.settings-content {
   max-width: 500px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
   padding: 24px;
+  background: #1a1a1a;
+  border-radius: 12px;
 }
 
 .settings-section {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.settings-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
 .settings-section h3 {
-  font-size: 1.1rem;
+  font-size: 1rem;
   margin-bottom: 4px;
+  color: #fff;
 }
 
 .settings-section p {
   opacity: 0.6;
-  font-size: 0.9rem;
-  margin-bottom: 12px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
 }
 
 .settings-section ul {
@@ -895,7 +907,7 @@ body.drag-over::before {
 }
 
 .settings-section li {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .settings-section li a {
@@ -906,11 +918,18 @@ body.drag-over::before {
   border-radius: 6px;
   transition: background 0.2s;
   text-decoration: none;
-  color: inherit;
+  color: #ccc;
+  font-size: 0.9rem;
 }
 
 .settings-section li a:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+}
+
+.settings-section .button-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .danger-btn {
@@ -920,7 +939,7 @@ body.drag-over::before {
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: background 0.2s;
 }
 
@@ -928,13 +947,270 @@ body.drag-over::before {
   background: #dc2626;
 }
 
-/* Light mode */
+/* Light mode for settings */
 @media (prefers-color-scheme: light) {
+  .settings-content {
+    background: #ffffff;
+  }
+  
   .settings-section {
-    border-color: rgba(0, 0, 0, 0.1);
+    border-color: rgba(0,0,0,0.08);
+  }
+  
+  .settings-section li a {
+    color: #333;
   }
   
   .settings-section li a:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(0,0,0,0.05);
+    color: #000;
+  }
+}
+
+/* ===== FOLDER PICKER STYLES ===== */
+.folder-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+.folder-picker-modal {
+  background: #1a1a1a;
+  border-radius: 12px;
+  max-width: 450px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.folder-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.folder-picker-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.folder-picker-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.folder-picker-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.folder-picker-path {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.85rem;
+  color: #aaa;
+  flex-shrink: 0;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.folder-picker-path span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-picker-up {
+  background: none;
+  border: none;
+  color: #646cff;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.folder-picker-up:hover {
+  background: rgba(100, 108, 255, 0.15);
+}
+
+.folder-picker-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+  max-height: 50vh;
+  -webkit-overflow-scrolling: touch;
+}
+
+.folder-picker-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.folder-picker-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.folder-picker-item:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.folder-picker-item .folder-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.folder-picker-item .folder-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #eee;
+  font-size: 0.95rem;
+}
+
+.folder-picker-item .folder-arrow {
+  color: #666;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.folder-picker-empty {
+  padding: 30px 20px;
+  text-align: center;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.folder-picker-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.folder-picker-footer button {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-height: 44px;
+}
+
+.folder-picker-load {
+  background: #646cff;
+  color: white;
+}
+
+.folder-picker-load:hover {
+  background: #535bf2;
+  transform: translateY(-1px);
+}
+
+.folder-picker-load:active {
+  transform: translateY(0);
+}
+
+.folder-picker-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ccc;
+}
+
+.folder-picker-cancel:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+/* Light mode for folder picker */
+@media (prefers-color-scheme: light) {
+  .folder-picker-modal {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  
+  .folder-picker-header {
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  
+  .folder-picker-header h3 {
+    color: #1a1a1a;
+  }
+  
+  .folder-picker-path {
+    background: rgba(0, 0, 0, 0.03);
+    color: #666;
+    border-color: rgba(0, 0, 0, 0.04);
+  }
+  
+  .folder-picker-item {
+    color: #1a1a1a;
+  }
+  
+  .folder-picker-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+  
+  .folder-picker-item .folder-name {
+    color: #1a1a1a;
+  }
+  
+  .folder-picker-footer {
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  
+  .folder-picker-cancel {
+    background: rgba(0, 0, 0, 0.06);
+    color: #333;
+  }
+  
+  .folder-picker-cancel:hover {
+    background: rgba(0, 0, 0, 0.12);
   }
 }

@@ -472,6 +472,82 @@ async function loadFolderContents(path = '') {
   }
 }
 
+function showFolderPickerUI(folders, currentPath = '', svgCount = 0) {
+  // Remove existing picker if any
+  const existing = document.querySelector('.folder-picker-overlay');
+  if (existing) existing.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'folder-picker-overlay';
+  overlay.innerHTML = `
+    <div class="folder-picker-modal">
+      <div class="folder-picker-header">
+        <h3>📁 ${currentPath || 'Internal Storage'}</h3>
+        <button class="folder-picker-close">✕</button>
+      </div>
+      <div class="folder-picker-path">
+        <span>📂 ${currentPath || '/'}</span>
+        ${currentPath ? `<button class="folder-picker-up">🔙 Up</button>` : ''}
+      </div>
+      <div class="folder-picker-list">
+        ${folders.length === 0 ? '<div class="folder-picker-empty">📭 No folders found</div>' : ''}
+        ${folders.map(f => `
+          <div class="folder-picker-item" data-path="${f.name}" data-type="${f.type}">
+            <span class="folder-icon">📁</span>
+            <span class="folder-name">${f.name}</span>
+            <span class="folder-arrow">›</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="folder-picker-footer">
+        <button class="folder-picker-load" id="loadFromHereBtn">📂 Load SVGs (${svgCount})</button>
+        <button class="folder-picker-cancel">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  
+  // Handle folder clicks
+  overlay.querySelectorAll('.folder-picker-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const path = item.dataset.path;
+      const newPath = currentPath ? `${currentPath}/${path}` : path;
+      await browseFoldersWithUI(newPath);
+    });
+  });
+  
+  // Up button
+  const upBtn = overlay.querySelector('.folder-picker-up');
+  if (upBtn) {
+    upBtn.addEventListener('click', async () => {
+      const parent = currentPath.split('/').slice(0, -1).join('/');
+      await browseFoldersWithUI(parent);
+    });
+  }
+  
+  // Load from current folder
+  overlay.querySelector('#loadFromHereBtn').addEventListener('click', async () => {
+    await loadFolderContents(currentPath);
+    overlay.remove();
+  });
+  
+  // Close buttons
+  overlay.querySelector('.folder-picker-close').addEventListener('click', () => {
+    overlay.remove();
+  });
+  
+  overlay.querySelector('.folder-picker-cancel').addEventListener('click', () => {
+    overlay.remove();
+  });
+  
+  // Click outside to close
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+}
+
 // ===== GALLERY =====
 function refreshGallery() {
   const existingGallery = document.querySelector('#svg-gallery');
@@ -680,6 +756,7 @@ function showNotification(message, type = 'info') {
 
 // ===== SETUP =====
 function setupApp() {
+  // Set up the main HTML
   document.querySelector('#app').innerHTML = `
     <section id="center">
       <div class="hero">
@@ -696,7 +773,7 @@ function setupApp() {
     <section id="spacer"></section>
   `;
 
-  // Drag and drop for web
+  // Setup drag and drop for web
   setupDragDrop();
 
   // Load saved library
@@ -704,6 +781,7 @@ function setupApp() {
   refreshGallery();
   updateUI();
 
+  // Log initialization
   console.log('🌇 svgview initialized!');
   console.log(`📚 Loaded ${allSvgs.length} SVGs from ${Object.keys(svgLibrary).length} folders`);
 }
