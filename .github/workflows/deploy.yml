@@ -35,9 +35,16 @@ jobs:
       
       - name: 📦 Install dependencies
         run: npm ci
-      
+
       - name: 🏗️ Build
         run: npm run build
+
+      - name: ✅ Verify build
+        run: |
+          echo "📁 Build contents:"
+          ls -la dist/
+          echo "📁 Checking index.html for base path:"
+          grep -o 'href="/[^"]*"' dist/index.html | head -5      
       
       - name: ⚙️ Setup Pages
         uses: actions/configure-pages@v4
